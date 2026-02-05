@@ -1,0 +1,274 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="当线上有报错的时候，大家是怎么定位问题的呢？ 断点调试么？ 但是这时候代码是被压缩过的，变量名都是 a、b、c、d 这种，根本看不出啥来。 如果调试线上报错能像本地开发的时候一样就好了。 其实这是可以做到的，这节就分享下如何优雅的调试线上报错： 首先，我们准备一段 JS 代码：  这是我随便找的一段 JS 代码，里面抛了一个错误。 然后用 webpack 进行编译：  在 index.html 里">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/39/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="当线上有报错的时候，大家是怎么定位问题的呢？ 断点调试么？ 但是这时候代码是被压缩过的，变量名都是 a、b、c、d 这种，根本看不出啥来。 如果调试线上报错能像本地开发的时候一样就好了。 其实这是可以做到的，这节就分享下如何优雅的调试线上报错： 首先，我们准备一段 JS 代码：  这是我随便找的一段 JS 代码，里面抛了一个错误。 然后用 webpack 进行编译：  在 index.html 里">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:44.538Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:44.538Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/39/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:44'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:44.538Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:44.538Z" title="更新于 2026-02-05 23:28:44">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>当线上有报错的时候，大家是怎么定位问题的呢？</p>
+<p>断点调试么？</p>
+<p>但是这时候代码是被压缩过的，变量名都是 a、b、c、d 这种，根本看不出啥来。</p>
+<p>如果调试线上报错能像本地开发的时候一样就好了。</p>
+<p>其实这是可以做到的，这节就分享下如何优雅的调试线上报错：</p>
+<p>首先，我们准备一段 JS 代码：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3a390a4ee66f4444ab234764e4aa65f8~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这是我随便找的一段 JS 代码，里面抛了一个错误。</p>
+<p>然后用 webpack 进行编译：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0ff045de2bd94818a7b84862d1fe32dc~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 index.html 里引入构建产物：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5891e5075c53472598ad517738922f31~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后跑个静态服务器 npx http-server .</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f9804ca7219947938dfb504aee8e33ae~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>浏览器访问，就会发现代码确实报错了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0652d0e651184260b6ff7e2b035a21d9~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>那问题来了，怎么定位错误原因呢？</p>
+<p>首先，我们可以使用异常断点，在抛异常的地方断住：</p>
+<p>创建一个 vscode 调试配置：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/06d1950db04b4a018defa8441e855682~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>勾选 uncaught exceptions，在未被捕获的异常处断住：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/312a53cf4d2746c68e5eae18e57c2271~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后启动调试：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f9b44569d5bb4e3ea78d784f44a94fee~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>你会发现代码在抛异常的地方断住了，这就是异常断点的功能。当你不知道哪里抛的异常的时候，可以用这个。</p>
+<p>但现在代码是被压缩过的，看不出啥来：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2364e68f82c443bba7402bc3bef93fbd~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>怎么能直接定位到抛异常的源码呢？</p>
+<p>这时候就要用到 sourcemap 了，它就是用于把编译后的源码映射回源码的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ad1d02bd0bc3439d9301385f810c3795~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1794b818cd22413dae06d5d8ab8fbc17~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>首先要生成 sourcemap，这个配置下 webpack 的 devtool 为 hidden-source-map 即可：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/20b199a815cd4eeda3ddb8cf38a1e3ea~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>hidden-source-map 的意思是生成 sourcemap 但是不关联。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a1437108188d4566814d28189577c9ee~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>如果你配成 source-map，代码是关联了 sourcemap 的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/75d57416d0134bd0b008588de7533ef4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>关联 sourcemap 需要在文件末尾加上 &#x2F;&#x2F;# sourceMappingURL&#x3D;xxx.js.map 的代码。</p>
+<p>但现在这个文件是线上的，不能直接改本地文件。我们可以使用 charles 的断点功能来修改它：</p>
+<p>charles 默认不代理 127.0.0.1 的请求，我们要配下 hosts：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8619884e7d75438c92ac3694f57878ff~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如我配了一个 <a target="_blank" rel="noopener" href="http://www.guangtest.com/">www.guangtest.com</a> 的域名到 127.0.0.1。</p>
+<p>试一下：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0157b20329b64d0aa304cabcc2e168d1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>hosts 配置生效了（如果 hosts 不生效，一般是你用了某个翻墙软件改了系统代理，关掉即可）：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/76f43b4e639f42428e5af798d5538619~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后我们要让 charles 拦截这个 url 的请求，需要安装一个插件 SwitchyOmega</p>
+<p>不过在那之前要指定一个数据目录，也就是浏览器把插件、历史、cookie 等数据保存在哪里：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e3039bb71a464286b7eb202f7c2863a5~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>不指定的话每次调试都会创建一个临时数据目录来跑调试，上次安装的插件就没有了。</p>
+<p>chrome 应用商店搜索 switchy omega：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a02b8728accb4644b9ff39a5ba9c7db8~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>配置下代理服务器，这里我 charles 是在 127.0.0.1:8888 的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/cba69e8231964d75ad8a4fe46401f4fa~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>之后配下 auto switch，让 <a target="_blank" rel="noopener" href="http://www.guangtest.com/">www.guangtest.com</a> 的请求都走我们刚刚配的代理：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0239e41249984306bfbf6614e709b393~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>之后点击应用选项。</p>
+<p>代理方式设置成 auto switch，也就是根据配置的规则自动切换代理：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7381594a8ed74d49b85798b1b43e02f8~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这个网页的代理配成 charles 之后，在 charles 就可以抓到对应的请求了：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d2790bfc63dc48c1a0e7918f2e0c18e6~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>接下来就是断点修改响应的内容了：</p>
+<p>点击 Proxy &gt; Breakpoint Settings</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/47a3e96efefe4356812dcee793bea1fc~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>添加一个对 guangtest.com 的 dist&#x2F;index.js 响应的断点：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ee694b96280f43f68a4b43b7a339aae5~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>强制刷下页面，charles 就会断住：</p>
+<p>我们可以修改响应的内容，然后点击 execute 来执行修改：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7a74bbc9d70a465785bc7611cdc0fb22~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>我加上了这样一行 sourcemap 的关联：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6c8a89b35d594c4c9275d22348febfeb~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 chrome devtools 里可以看到拿到的响应是被修改过的：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/eff507d666a44604b759cea02f48cc66~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>异常断点现在直接在源码处断住了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5eb79d1700da4752ad097d1802668a3b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>接下来就可以直接调试源码了，可以通过作用域、调用栈等信息来定位报错原因：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8916e0b5bcae42ed99bc72a74ad1dc5c~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这样我们就完成了直接本地调试线上报错代码对应的源码！</p>
+<p>案例代码在<a target="_blank" rel="noopener" href="https://github.com/QuarkGluonPlasma/fe-debug-exercize">小册仓库</a></p>
+<p>有的同学可能会问，前面我们不是学过一个小技巧，sources 面板可以右键点击 add soruce map，就可以手动关联 sourcemap么：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5ed73a4230964a4a8d424edef808769c~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>没错，那样比较简单，不用 charles 来断点修改文件内容，但那个是一次性的，刷新就没了。</p>
+<p>而 charles 断点修改的内容会缓存，强制刷新才会重新请求。</p>
+<p>这两种方式都可以。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>通过 sourcemap，我们可以调试线上报错的时候直接对应到本地源码来断点调试。</p>
+<p>要让线上代码关联 sourcemap 可以通过 charles 断点修改对应的响应，加上一行 sourceMappingURL&#x3D;xxx 的注释。</p>
+<p>然后在 VSCode Debugger 里加个异常断点，这样就可以在异常处断住。</p>
+<p>这样就可以快速定位线上错误的原因了，体验就和本地开发时一样！</p>
+<p>当然，更快捷的方式是 VSCode Debugger 异常断点断住的时候右键 chrome devtools 的 sources 面板，手动 add source map。不过这种方式是一次性的。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/39/">https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/39/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/38/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/19/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

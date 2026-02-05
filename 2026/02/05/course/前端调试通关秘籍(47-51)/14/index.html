@@ -1,0 +1,344 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前面两节我们学习了怎么调试 Node.js、npm scripts，这节我们来过一遍 VSCode Node Debugger 的常用配置。 首先，从 attch 的方式开始： attach有这样一个 Node.js 文件： 12345678910const http &#x3D; require(&#x27;http&#x27;);const server &#x3D; http.createServer((req">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/14/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="前面两节我们学习了怎么调试 Node.js、npm scripts，这节我们来过一遍 VSCode Node Debugger 的常用配置。 首先，从 attch 的方式开始： attach有这样一个 Node.js 文件： 12345678910const http &#x3D; require(&#x27;http&#x27;);const server &#x3D; http.createServer((req">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:44.536Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:44.536Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/14/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:44'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:44.536Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:44.536Z" title="更新于 2026-02-05 23:28:44">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>前面两节我们学习了怎么调试 Node.js、npm scripts，这节我们来过一遍 VSCode Node Debugger 的常用配置。</p>
+<p>首先，从 attch 的方式开始：</p>
+<h2 id="attach"><a href="#attach" class="headerlink" title="attach"></a>attach</h2><p>有这样一个 Node.js 文件：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> http = <span class="built_in">require</span>(<span class="string">&#x27;http&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> server = http.<span class="title function_">createServer</span>(<span class="function">(<span class="params">req, res</span>) =&gt;</span> &#123;</span><br><span class="line">  res.<span class="title function_">writeHead</span>(<span class="number">200</span>, &#123; <span class="string">&#x27;Content-Type&#x27;</span>: <span class="string">&#x27;application/json&#x27;</span> &#125;);</span><br><span class="line">  res.<span class="title function_">end</span>(<span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123;</span><br><span class="line">    <span class="attr">data</span>: <span class="string">&#x27;Hello World!&#x27;</span></span><br><span class="line">  &#125;));</span><br><span class="line">&#125;);</span><br><span class="line"></span><br><span class="line">server.<span class="title function_">listen</span>(<span class="number">8888</span>);</span><br></pre></td></tr></table></figure>
+<p>我们以调试模式启动：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f638c12a835d448f9cd7001f53d63e1b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后 VSCode Debugger 添加一个 attach 类型的 Node 调试配置，端口是 9229:</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/93c1c646459740b4b094022bd605787b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>点击调试启动就可以连上。</p>
+<p>打个断点：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c6632cc7f4454ddf9ab21688febf32c8~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>浏览器访问，这时候代码就会在断点处断住：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/36c9d0930d014ba7bcc9db8973c2fe60~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这些我们前面讲过，今天来讲一些别的配置：</p>
+<h3 id="restart"><a href="#restart" class="headerlink" title="restart"></a>restart</h3><p>VSCode Debugger 以 attach 的方式启动，是需要连接 ws 调试服务的，而连接自然就可能超时、失败之类的，这时候就需要重连。</p>
+<p>重连的间隔和次数是可以配置的：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ea41715cc7bf49bfbc664b2a56ac9c57~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如上面就是 1s 重试一次，最多 3 次：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f6cbc945f96e45ffb364c2128fc7db93~tplv-k3u1fbpfcp-watermark.image"></p>
+<h3 id="attach-by-process-id"><a href="#attach-by-process-id" class="headerlink" title="attach by process id"></a>attach by process id</h3><p>上面的 attach 方式是连接到了 9229 端口，但其实还有另一种 attch 方式，就是通过进程 id。</p>
+<p>比如上面跑在 9229 端口的 node 进程的 id 可以通过命令查看：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/198a0ea1b1db4b0aba1060c1f571f7a1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>发现是 98700，那么我们就可以通过这个进程 id 来 attach 调试服务：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/98279a98b7cf498dadeaadf43da024d1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4ef91d7fc8a341e58bccb6528b885ad2~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>默认值是 ${command: PickProcess} 这个会弹出一个选择窗口：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b1b54798d0cc43b692c9df931de681d3~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>选择 98700 的那个进程，attach 即可。</p>
+<p>当然，这里我们已经知道了进程 id，那就不需要选择了，直接指定即可：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f2a94db07b484744afecbc07644c674e~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>attch 的方式讲完了，接下来来看下 launch 方式的配置：</p>
+<h2 id="launch"><a href="#launch" class="headerlink" title="launch"></a>launch</h2><p>launch 不需要我们自己以调试模式启动，只需要指定 node 程序的地址即可：</p>
+<h3 id="program-args"><a href="#program-args" class="headerlink" title="program &amp; args"></a>program &amp; args</h3><p>创建个 test 文件，打个断点：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8bc89e368028412b90d88a36a39dfd06~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>添加一个 launch 类型的 Node 调试配置：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/518990593e484b2d8bb0bc3b035055db~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c566efb23b6343e7bac667d43b1e3e2e~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>代码会在断点处断住，然后可以查看当前的命令行参数：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c0ea10a7d28a4038b7e648a6b5de4b2b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>命令行参数是这俩：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5df00ad8ce534e6aa0fd2caf1a0b19f9~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>可以通过 args 来添加命令行参数：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/dc6db4727ba2443b9c7bfc18a6d1207b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c3aaa8f206d94b8a9959ea0f6bf4bd26~tplv-k3u1fbpfcp-watermark.image"></p>
+<h3 id="runtimeExecutable"><a href="#runtimeExecutable" class="headerlink" title="runtimeExecutable"></a>runtimeExecutable</h3><p>runtime 默认是 node，其实这个也是可以改的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bc4e9e5a19b4423993cb6d86405bdd7d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>VSCode Debugger 会从 PATH 的环境变量中查找对应名字的 runtime 启动。</p>
+<p>我们前面调试 npm scripts，就是修改了这个：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a48d8e4173ab4ce99c10271aedede022~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如我们可以跑 node 调试，是因为 PATH 中有 node。</p>
+<p>我们可以安装一个 ts-node：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install -g ts-node</span><br></pre></td></tr></table></figure>
+
+<p>然后把 runtimeExecutable 改为 ts-node：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0ec215472230448b9789f5073e94d754~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这时候就是用 ts-node 来跑了：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8d360c5919e74c48a25e4f56e2bfc149~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>你还可以通过 runtimeArgs 给它传参数。</p>
+<p>VSCode 内置了 launch via npm 的配置，如果你把 runtimeExecutable 换成 pnpm，那就是 launch via pnpm 了。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b790537384694161a250d56f00170172~tplv-k3u1fbpfcp-watermark.image"></p>
+<h3 id="skipFiles"><a href="#skipFiles" class="headerlink" title="skipFiles"></a>skipFiles</h3><p>这个配置的默认值是 <node_internal>&#x2F;**</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e71979b6bac44187963b4e87e596e4f4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>也就是跳过 node 内部的文件。</p>
+<p>效果就是这样的：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ad9ace48ec0a4ca69a7162187b71e2be~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这样就可以精简掉调用栈，只显示我们关心的部分。</p>
+<p>把 skipFiles 置空之后，所有代码就都展示出来了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/921e1b958c4542859296505adbb08d2f~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>再来测试下，我们添加这样两个文件：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/33701d177c0d44b5a7ea0096265f1e4b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f0c45c402f5c4bf2b7757bb068ddf303~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 add 里打了个断点，然后调试方式启动：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/471c8286e4c2423fa2478531d609cfd1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>调用栈是这样的：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2400bd78913b40089c530b868b5658b5~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>如果你把 index 添加到 skipFiles 里：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6bdc27b7271340a7bdb2f69170ada8ec~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>那调用栈就是这样了：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/579c20a1dc8b46fd812bc37ce8c4e5d5~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>index.js 也被加到 skipFiles 里折叠起来了。</p>
+<h3 id="stopOnEntry"><a href="#stopOnEntry" class="headerlink" title="stopOnEntry"></a>stopOnEntry</h3><p>这个是在首行断住，和 node –inspect-brk 的效果一样，在 chrome 调试时也有同样的配置：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ce382b17f8ad41c8bd2db4670905e08f~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="console"><a href="#console" class="headerlink" title="console"></a>console</h2><p>默认 debug 模式下，打印的日志是在 console 的，而不是 terminal。而 console 里是不支持彩色的：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/dac72025ec614fcd9fe754f3a7d8b5d5~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这个可以通过 console 配置设置，有三个选项：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/867c29f9cc8143d2a5bcadd0cdeff5be~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>internalConsole 就是内置的 debug console 面板，默认是这个。</p>
+<p>internalTerminal 是内置的 terminal 面板，切换成这个就是彩色了：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f45bc10833ad45988019574c7f4ed302~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>externalTerminal 会打开系统的 terminal 来展示日志信息：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5037552e44d2478a88235e3d7112cacc~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>一般情况下，用 internalTerminal 就好。</p>
+<h3 id="autoAttachChildProcesses"><a href="#autoAttachChildProcesses" class="headerlink" title="autoAttachChildProcesses"></a>autoAttachChildProcesses</h3><p>node 里是支持多进程的，可以把一些脚本放在子进程来跑来提高性能，充分利用计算机的资源。</p>
+<p>比如这样：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> cp = <span class="built_in">require</span>(<span class="string">&#x27;child_process&#x27;</span>);</span><br><span class="line"></span><br><span class="line">cp.<span class="title function_">spawnSync</span>(<span class="string">&#x27;node&#x27;</span>, [<span class="string">&#x27;./index.js&#x27;</span>], &#123;</span><br><span class="line">    <span class="attr">stdio</span>: <span class="string">&#x27;inherit&#x27;</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>他就是把 index.js 放到子进程来跑了。</p>
+<p>但是默认子进程的输入输出也就是 stdin（标准输入）、stdout（标准输出）不会显示在控制台，这时候可以让它继承父进程的 stdin、stdout 就可以了。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/958ddf2e71f44649b8f3a8703304e5fa~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这个输入输出当然也可以定向到别的地方。记得前面我们指定过 console 的输出位置么？</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1f7f05c6beb648378e13cc062d859a5c~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这个就是输入输出流 stdin、stdout 的重定向。</p>
+<p>当然，这不是我们的重点，我们目的是为了能调试子进程的代码。</p>
+<p>index.js 是这样的：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> add = <span class="built_in">require</span>(<span class="string">&#x27;./add&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="title function_">add</span>(<span class="number">1</span>, <span class="number">2</span>));</span><br></pre></td></tr></table></figure>
+
+<p>add.js 是这样：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable language_">module</span>.<span class="property">exports</span> = <span class="keyword">function</span>(<span class="params">a, b</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们在 add.js 里打个断点：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c3f2e4e4a2c246e48f161bb04a71d922~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>它是在子进程里的断点，但是跑调试你会发现能断住：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/dd08d06193604e1abf9376599a9cdee6~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这是因为 autoAttachChildProcesses 的默认值是 true。</p>
+<p>调试模式启动的时候，主进程会有调试端口，子进程也会有调试端口，而 autoAttachChildProcess 就是自动连接上子进程的 ws 调试服务的端口。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/57deed485cb540419521249d0fa222ca~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>调用栈这里也可以看到是两级的结构，这就是 attch 到了子进程的调试服务。</p>
+<p>如果你把 autoAttachChildProcesses 设置为 false，就会发现在子进程打的断点不会生效了。</p>
+<h3 id="cwd"><a href="#cwd" class="headerlink" title="cwd"></a>cwd</h3><p>cwd 很容易理解就是 current work directory，当前工作目录。</p>
+<p>也就是指定 runtime 在哪个目录运行，默认是项目根目录 workspaceFolder</p>
+<p>比如在调试 npm scripts 的时候，指定了 cwd 就是在 cwd 下执行 npm run xxx 了：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/56b045c4b4684a0a920fee6b73b5f496~tplv-k3u1fbpfcp-watermark.image"></p>
+<h3 id="env"><a href="#env" class="headerlink" title="env"></a>env</h3><p>node 程序很多情况下是需要取一些环境变量的，那我们要手动设置了环境变量再跑调试么？</p>
+<p>不用，有对应的配置，也就是 env。</p>
+<p>比如这样：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f78d548a1e80414bb2f396b769854209~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这样在调试的 node 程序里就可以取到这些环境变量：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/410bed6c37474d24add503b0dd978815~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>如果你有一个 envFile 来保存环境变量的话，也可以通过 envFile 的方式：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e60e028e916542eea97c63236f40e6ab~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>.env 内容如下：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3628bda5626f4496b992cfa9bbf2de8b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 node 代码里可以取到对应的环境变量：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/24898cdfa7584ff2a43f8067dbf50961~tplv-k3u1fbpfcp-watermark.image"></p>
+<h3 id="presentation"><a href="#presentation" class="headerlink" title="presentation"></a>presentation</h3><p>当调试配置多了以后，就会比较乱，那能不能做一些配置的分组还有排序呢？</p>
+<p>VSCode Debugger 是支持的。</p>
+<p>比如这样三个调试配置：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/24c1c3f6263949cebd563c01b4841a7d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>我们想把调试 chrome 的放一组，调试 node 的放一组，就可以这样写：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0cb7c175a1a74d4dadb11abb437bd085~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a3129afe7a5941ad8c52886b32201c62~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>效果就是这样的：</p>
+<p>大型项目里调试配置会很多，比如 VSCode，它就有很多调试配置，并用 presentation 做了分组：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e6fcbe91d83e41c9a16fa9aea8dbd004~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这节我们过了一遍 VSCode Node Debugger 的调试配置：</p>
+<ul>
+<li>restart: attatch 的时候可以指定尝试重连的次数和时间间隔</li>
+<li>processId：除了可以通过网络端口，还可以通过进程 id 的方式 attach 到某个进程的调试服务</li>
+<li>program：调试的 node 代码路径，可以通过 args 传参</li>
+<li>runtimeExecutable：指定跑代码用的 runtime，默认是 node，也可以换成 ts-node、npm、pnpm 等，但要求这些命令在 PATH 环境变量里</li>
+<li>skipFiles：折叠某些路径，不显示在调用栈里，比如 node 内部的一些代码</li>
+<li>stopOnEntry：在首行断住，和 –inspect-brk 一样的效果</li>
+<li>autoAttachChildProcesses：自动 attch 到子进程的调试服务</li>
+<li>console：指定日志输出的位置，是内置的 console、terminal，还是外部的 terminal</li>
+<li>cwd：跑 runtime 的目录</li>
+<li>env：指定环境变量</li>
+<li>presentation：对多个调试配置做分组和排序</li>
+</ul>
+<p>理解了这些调试配置，就可以愉快的调试 node 代码了。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/14/">https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/14/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/13/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/15/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#attach"><span class="toc-number">1.</span> <span class="toc-text">attach</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#restart"><span class="toc-number">1.1.</span> <span class="toc-text">restart</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#attach-by-process-id"><span class="toc-number">1.2.</span> <span class="toc-text">attach by process id</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#launch"><span class="toc-number">2.</span> <span class="toc-text">launch</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#program-args"><span class="toc-number">2.1.</span> <span class="toc-text">program &amp; args</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#runtimeExecutable"><span class="toc-number">2.2.</span> <span class="toc-text">runtimeExecutable</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#skipFiles"><span class="toc-number">2.3.</span> <span class="toc-text">skipFiles</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#stopOnEntry"><span class="toc-number">2.4.</span> <span class="toc-text">stopOnEntry</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#console"><span class="toc-number">3.</span> <span class="toc-text">console</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#autoAttachChildProcesses"><span class="toc-number">3.1.</span> <span class="toc-text">autoAttachChildProcesses</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#cwd"><span class="toc-number">3.2.</span> <span class="toc-text">cwd</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#env"><span class="toc-number">3.3.</span> <span class="toc-text">env</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#presentation"><span class="toc-number">3.4.</span> <span class="toc-text">presentation</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

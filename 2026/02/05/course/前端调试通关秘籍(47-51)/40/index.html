@@ -1,0 +1,302 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前面学习了 Chrome DevTools 的各种工具的使用，从这节开始深入下它的实现原理。 调试工具都包含 frontend、backend、调试协议、信道这四个部分：  而在 Chrome DevTools 里这个调试协议就是 Chrome DevTools Protocol，简称 CDP。 打开 CDP 的文档，可以看到 CDP 协议分为了不同的 Domain：  比如 DOM、CSS、De">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/40/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="前面学习了 Chrome DevTools 的各种工具的使用，从这节开始深入下它的实现原理。 调试工具都包含 frontend、backend、调试协议、信道这四个部分：  而在 Chrome DevTools 里这个调试协议就是 Chrome DevTools Protocol，简称 CDP。 打开 CDP 的文档，可以看到 CDP 协议分为了不同的 Domain：  比如 DOM、CSS、De">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:44.539Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:44.539Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/40/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:44'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:44.539Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:44.539Z" title="更新于 2026-02-05 23:28:44">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>前面学习了 Chrome DevTools 的各种工具的使用，从这节开始深入下它的实现原理。</p>
+<p>调试工具都包含 frontend、backend、调试协议、信道这四个部分：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/02950a71e15748f2928b37229c2c9130~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>而在 Chrome DevTools 里这个调试协议就是 Chrome DevTools Protocol，简称 CDP。</p>
+<p>打开 <a target="_blank" rel="noopener" href="https://chromedevtools.github.io/devtools-protocol/">CDP 的文档</a>，可以看到 CDP 协议分为了不同的 Domain：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/441120abf3d54cb286072222f39e325c~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如 DOM、CSS、Debugger 等，这个很容易理解，各种工具的数据通信总不能混到一起吧，所以分成了不同的域来管理。</p>
+<p>每个 Domain 下都包含了 Methods 和 Events：</p>
+<ul>
+<li>Method 就是 frontend 向 backend 请求数据，backend 给它返回相应的数据</li>
+<li>Event 就是 backend 推送给 frontend 的一些数据。</li>
+</ul>
+<p>你可以在 Chrome DevTools 的设置里开启 Protocol Monitor 面板：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/753ffbec176d4c5597b7ece7c6ce3df1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 More Tools 里打开：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/18af111c8afa498184ea799f97457ed2~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后你就可以看到当前页面所有的 CDP 数据交互：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0c1a2da442854919babed66b20fce290~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>双向箭头的就是 Method，单向箭头的就是 backend 推给 frontend 的 Event。</p>
+<p>你可以在下面的 send a raw CDP method 的输入框里输入协议数据，Chrome DevTools 会把它发给 backend:</p>
+<p>比如发送 DOM.getDocument 的 method：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;method&quot;</span><span class="punctuation">:</span> <span class="string">&quot;DOM.getDocument&quot;</span><span class="punctuation">,</span><span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>就会返回整个 DOM 的信息：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/92d23d0a533c4a438466efebf5e29b6d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如发送 CSS.getComputedStyleForNode 的 method，带上某个 nodeId：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span><span class="attr">&quot;method&quot;</span><span class="punctuation">:</span> <span class="string">&quot;CSS.getComputedStyleForNode&quot;</span><span class="punctuation">,</span><span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;nodeId&quot;</span><span class="punctuation">:</span> <span class="number">920</span><span class="punctuation">&#125;</span><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>就可以拿到这个 node 的所有计算后的样式：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4047e6eceb4248d7a95a3fb12169d5b2~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>Chrome DevTools 里展示的所有内容都是从 backend 那里拿到的，他只是一个展示和交互的 UI 而已。</p>
+<p>这个 UI 是可以换的，比如我们可以用 VSCode Debugger 对接 CDP 调试协议来调试网页。</p>
+<p>Chrome DevTools frontend 也是一个独立的项目，我们可以从 npm 仓库下载 chrome-devtools-frontend 的代码，我这里用的是 1.0.672485 版本的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">npm install chrome-devtools-frontend@1.0.672485</span><br></pre></td></tr></table></figure>
+<p>下载下来的代码有个 front_end 目录，这个就是 Chrome DevTools 的前端代码：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6ceccbc7a7ba4d78aa69b7d33361b224~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>它下面有几个 html：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1ce13f9453ca48ca835ca4af9be10363~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>我们在 node_modules&#x2F;chrome-devtools-frontend 下执行 “npx http-server .” 起个静态服务看一下：</p>
+<p>devtools_app.html 就是网页的那个调试页面：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/58bf2ecb228643e6bca2b3aabcaa0b6b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>node_app.html 就是 node 的那个调试页面：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f11ef607497d4cdeb435ba9fbc75b0fd~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这就是 Chrome DevTools 的 frontend 部分。</p>
+<p>那怎么用这个独立的 frontend 呢？</p>
+<p>给它配个 WebSocket 的 backend 就行.</p>
+<p>用 node 创建个 WebSocket 服务端，打印下收到的消息：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> ws = <span class="built_in">require</span>(<span class="string">&#x27;ws&#x27;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> wss = <span class="keyword">new</span> ws.<span class="title class_">Server</span>(&#123; <span class="attr">port</span>: <span class="number">8080</span> &#125;);</span><br><span class="line"></span><br><span class="line">wss.<span class="title function_">on</span>(<span class="string">&#x27;connection&#x27;</span>, <span class="keyword">function</span> <span class="title function_">connection</span>(<span class="params">ws</span>) &#123;</span><br><span class="line">    ws.<span class="title function_">on</span>(<span class="string">&#x27;message&#x27;</span>, <span class="keyword">function</span> <span class="title function_">message</span>(<span class="params">data</span>) &#123;</span><br><span class="line">        <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&#x27;received: %s&#x27;</span>, data);  </span><br><span class="line">    &#125;);</span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>在 devtools_app.html 后面加上 ws&#x3D;localhost:8080 的参数：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2a9e43ba7cd341a4abfd78521e57ff51~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>启动 ws 服务，你就会发现控制台打印了一系列收到的消息：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/72fe70764a1549de8d5d148892b48064~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这就是 CDP 协议的数据。</p>
+<p>那我们对接一下这个协议，返回相应格式的数据，能在 Chrome DevTools 里做显示么？</p>
+<p>我们试一下。</p>
+<p>我们找个网络相关的协议：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ede36e24c8614a1e8d82f4d34ad997ee~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>现在 Protocol Monitor 里看看 NetWork 部分都是怎么通过 CDP 交互的：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d4c0069659a04e2bb0e94f59f65d68c1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后你会发现每次发请求前，backend 都会给 frontend 传一个 Network.requestWillBeSent 的消息，带上这次请求的信息。</p>
+<p>那我们能不能也发一个这样的消息呢？</p>
+<p>我模拟构造了一个类似的 CDP 消息：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5fa2d0d0ff3543fe8d1426312209cd19~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后在 frontend 的页面看一下：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b011341015ef41239b24b6cba4bf7f06~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>你会发现 Network 面板显示了我们发过来的消息！</p>
+<p>这就是 Chrome DevTools 的原理。</p>
+<p>（代码在<a target="_blank" rel="noopener" href="https://github.com/QuarkGluonPlasma/fe-debug-exercize/tree/main/react-source-debug">小册仓库</a>）</p>
+<p>测试了下 Network 部分的协议之后，我们再来试下 DOM 的。</p>
+<p>我用 Protocol Monitor 观察了下 DOM 部分的 CDP 交互：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ff8bf1b09cb14241ac99d524229ca01e~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>首先通过 DOM.getDocument 获取 root 的信息，这一级返回的 node 只到 body。</p>
+<p>然后后面再发 DOM.requestChildNodes 的消息，服务端会回一个 DOM.setChildNodes 的消息来返回子节点的信息。</p>
+<p>我们也这样实现一下：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ec15632d8d804b6fbd67fc0a670dc3d1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>收到 DOM.getDocument 的消息的时候，我们返回 root 的信息，只到 body 那一级。</p>
+<p>然后发送 DOM.setChildNotes 来返回子节点的信息。</p>
+<p>还要处理下 DOM.requestChildNodes 的消息，返回空就行。</p>
+<p>完整代码如下：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br></pre></td><td class="code"><pre><span class="line">ws.<span class="title function_">on</span>(<span class="string">&#x27;message&#x27;</span>, <span class="keyword">function</span> <span class="title function_">message</span>(<span class="params">data</span>) &#123;</span><br><span class="line">        <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="string">&#x27;received: %s&#x27;</span>, data);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">const</span> message = <span class="title class_">JSON</span>.<span class="title function_">parse</span>(data);</span><br><span class="line">        <span class="keyword">if</span> (message.<span class="property">method</span> === <span class="string">&#x27;DOM.getDocument&#x27;</span>) &#123;</span><br><span class="line">            ws.<span class="title function_">send</span>(<span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123;</span><br><span class="line">                <span class="attr">id</span>: message.<span class="property">id</span>,</span><br><span class="line">                <span class="attr">result</span>: &#123;</span><br><span class="line">                    <span class="attr">root</span>: &#123;</span><br><span class="line">                        <span class="attr">nodeId</span>: <span class="number">1</span>,</span><br><span class="line">                        <span class="attr">backendNodeId</span>: <span class="number">1</span>,</span><br><span class="line">                        <span class="attr">nodeType</span>: <span class="number">9</span>,</span><br><span class="line">                        <span class="attr">nodeName</span>: <span class="string">&quot;#document&quot;</span>,</span><br><span class="line">                        <span class="attr">localName</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                        <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                        <span class="attr">childNodeCount</span>: <span class="number">2</span>,</span><br><span class="line">                        <span class="attr">children</span>: [</span><br><span class="line">                            &#123;</span><br><span class="line">                                <span class="attr">nodeId</span>: <span class="number">2</span>,</span><br><span class="line">                                <span class="attr">parentId</span>: <span class="number">1</span>,</span><br><span class="line">                                <span class="attr">backendNodeId</span>: <span class="number">2</span>,</span><br><span class="line">                                <span class="attr">nodeType</span>: <span class="number">10</span>,</span><br><span class="line">                                <span class="attr">nodeName</span>: <span class="string">&quot;html&quot;</span>,</span><br><span class="line">                                <span class="attr">localName</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                <span class="attr">publicId</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                <span class="attr">systemId</span>: <span class="string">&quot;&quot;</span></span><br><span class="line">                            &#125;,</span><br><span class="line">                            &#123;</span><br><span class="line">                                <span class="attr">nodeId</span>: <span class="number">3</span>,</span><br><span class="line">                                <span class="attr">parentId</span>: <span class="number">1</span>,</span><br><span class="line">                                <span class="attr">backendNodeId</span>: <span class="number">3</span>,</span><br><span class="line">                                <span class="attr">nodeType</span>: <span class="number">1</span>,</span><br><span class="line">                                <span class="attr">nodeName</span>: <span class="string">&quot;HTML&quot;</span>,</span><br><span class="line">                                <span class="attr">localName</span>: <span class="string">&quot;html&quot;</span>,</span><br><span class="line">                                <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                <span class="attr">childNodeCount</span>: <span class="number">2</span>,</span><br><span class="line">                                <span class="attr">children</span>: [</span><br><span class="line">                                    &#123;</span><br><span class="line">                                        <span class="attr">nodeId</span>: <span class="number">4</span>,</span><br><span class="line">                                        <span class="attr">parentId</span>: <span class="number">3</span>,</span><br><span class="line">                                        <span class="attr">backendNodeId</span>: <span class="number">4</span>,</span><br><span class="line">                                        <span class="attr">nodeType</span>: <span class="number">1</span>,</span><br><span class="line">                                        <span class="attr">nodeName</span>: <span class="string">&quot;HEAD&quot;</span>,</span><br><span class="line">                                        <span class="attr">localName</span>: <span class="string">&quot;head&quot;</span>,</span><br><span class="line">                                        <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                        <span class="attr">childNodeCount</span>: <span class="number">5</span>,</span><br><span class="line">                                        <span class="attr">attributes</span>: []</span><br><span class="line">                                    &#125;,</span><br><span class="line">                                    &#123;</span><br><span class="line">                                        <span class="attr">nodeId</span>: <span class="number">5</span>,</span><br><span class="line">                                        <span class="attr">parentId</span>: <span class="number">3</span>,</span><br><span class="line">                                        <span class="attr">backendNodeId</span>: <span class="number">5</span>,</span><br><span class="line">                                        <span class="attr">nodeType</span>: <span class="number">1</span>,</span><br><span class="line">                                        <span class="attr">nodeName</span>: <span class="string">&quot;BODY&quot;</span>,</span><br><span class="line">                                        <span class="attr">localName</span>: <span class="string">&quot;body&quot;</span>,</span><br><span class="line">                                        <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                        <span class="attr">childNodeCount</span>: <span class="number">1</span>,</span><br><span class="line">                                        <span class="attr">attributes</span>: []</span><br><span class="line">                                    &#125;</span><br><span class="line">                                ],</span><br><span class="line">                                <span class="attr">attributes</span>: [</span><br><span class="line">                                    <span class="string">&quot;lang&quot;</span>,</span><br><span class="line">                                    <span class="string">&quot;en&quot;</span></span><br><span class="line">                                ],</span><br><span class="line">                                <span class="attr">frameId</span>: <span class="string">&quot;3A70524AB6D85341B3B613D81FDC2DDE&quot;</span></span><br><span class="line">                            &#125;</span><br><span class="line">                        ],</span><br><span class="line">                        <span class="attr">documentURL</span>: <span class="string">&quot;http://127.0.0.1:8085/&quot;</span>,</span><br><span class="line">                        <span class="attr">baseURL</span>: <span class="string">&quot;http://127.0.0.1:8085/&quot;</span>,</span><br><span class="line">                        <span class="attr">xmlVersion</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                        <span class="attr">compatibilityMode</span>: <span class="string">&quot;NoQuirksMode&quot;</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;));</span><br><span class="line"></span><br><span class="line">            ws.<span class="title function_">send</span>(<span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123;</span><br><span class="line">                <span class="attr">method</span>: <span class="string">&quot;DOM.setChildNodes&quot;</span>,</span><br><span class="line">                <span class="attr">params</span>: &#123;</span><br><span class="line">                    <span class="attr">nodes</span>: [</span><br><span class="line">                        &#123;</span><br><span class="line">                            <span class="attr">attributes</span>: [</span><br><span class="line">                                <span class="string">&quot;class&quot;</span>,</span><br><span class="line">                                <span class="string">&quot;guang&quot;</span></span><br><span class="line">                            ],</span><br><span class="line">                            <span class="attr">backendNodeId</span>: <span class="number">6</span>,</span><br><span class="line">                            <span class="attr">childNodeCount</span>: <span class="number">0</span>,</span><br><span class="line">                            <span class="attr">children</span>: [</span><br><span class="line">                                &#123;</span><br><span class="line">                                    <span class="attr">backendNodeId</span>: <span class="number">6</span>,</span><br><span class="line">                                    <span class="attr">localName</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                                    <span class="attr">nodeId</span>: <span class="number">7</span>,</span><br><span class="line">                                    <span class="attr">nodeName</span>: <span class="string">&quot;#text&quot;</span>,</span><br><span class="line">                                    <span class="attr">nodeType</span>: <span class="number">3</span>,</span><br><span class="line">                                    <span class="attr">nodeValue</span>: <span class="string">&quot;光光光&quot;</span>,</span><br><span class="line">                                    <span class="attr">parentId</span>: <span class="number">6</span>,</span><br><span class="line">                                &#125;</span><br><span class="line">                            ],</span><br><span class="line">                            <span class="attr">localName</span>: <span class="string">&quot;p&quot;</span>,</span><br><span class="line">                            <span class="attr">nodeId</span>: <span class="number">6</span>,</span><br><span class="line">                            <span class="attr">nodeName</span>: <span class="string">&quot;P&quot;</span>,</span><br><span class="line">                            <span class="attr">nodeType</span>: <span class="number">1</span>,</span><br><span class="line">                            <span class="attr">nodeValue</span>: <span class="string">&quot;&quot;</span>,</span><br><span class="line">                            <span class="attr">parentId</span>: <span class="number">5</span></span><br><span class="line">                        &#125;</span><br><span class="line">                    ],</span><br><span class="line">                    <span class="attr">parentId</span>: <span class="number">5</span></span><br><span class="line">                &#125;</span><br><span class="line">            &#125;));</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (message.<span class="property">method</span> === <span class="string">&#x27;DOM.requestChildNodes&#x27;</span>) &#123;</span><br><span class="line">            ws.<span class="title function_">send</span>(<span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123;</span><br><span class="line">                <span class="attr">id</span>: message.<span class="property">id</span>,</span><br><span class="line">                <span class="attr">result</span>: &#123;&#125;</span><br><span class="line">            &#125;));</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;);</span><br></pre></td></tr></table></figure>
+
+<p>返回的内容如上，我们返回了一个 P 标签，有 class 属性，还有一个文本节点。</p>
+<p>重启下 backend 服务，在 frontend 里重连一下，你就会发现 frontend 显示了我们返回的 DOM 信息：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ac11fc79d9e540e2b138bd96d35835da~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>经过这两个案例，我们就搞明白了 Chrome DevTools frontend 是怎么和 backend 交互的。</p>
+<p>看到自己模拟 DOM 信息这部分，不知道你是否会想到跨端引擎呢。</p>
+<p>跨端引擎就是通过前端的技术来描述界面（比如也是通过 DOM），实际上用安卓和 IOS 的原生组件来做渲染。</p>
+<p>它的调试工具也是需要显示 DOM 树的信息的，但是因为并不是网页，所以不能直接用 Chrome DevTools。</p>
+<p>那如何用 Chrome DevTools 来调试跨端引擎呢？</p>
+<p>看完上面两个案例，相信你就会有答案了。只要对接了 CDP，自己实现一个 backend，把 DOM 树的信息，通过 CDP 的格式传给 frontend 就可以了。</p>
+<p>自定义的调试工具基本都是前端部分集成下 Chrome DevTools frontend，后端部分实现下对接 CDP 的 ws 服务来实现的。</p>
+<p>比如有很多<a target="_blank" rel="noopener" href="https://github.com/ChromeDevTools/awesome-chrome-devtools">用 Chrome DevTools 的backend 调试其他代码的工具</a>：</p>
+<p>比如监听系统级别的（包括浏览器之外）的 http 请求，用 chrome devtools 的Network面板展示的工具 <a target="_blank" rel="noopener" href="https://github.com/kdzwinel/betwixt">betwixt</a>：</p>
+<p>比如用 Chrome DevTools 调试 ios 的网络和数据的工具<a target="_blank" rel="noopener" href="https://github.com/square/PonyDebugger">PonyDebugger</a>：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1d7816aee40d435699499d7347ebe8ea~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>frontend 只是一个对接了 CDP 的独立的客户端 UI，自己实现 CDP 的 backend 就可以用它来调试各种东西。</p>
+<p>对前端来说，常见的就是跨端引擎、小程序引擎的调试工具：</p>
+<p>小程序引擎的调试工具更简单，因为它实际上渲染是用的网页，有 CDP 的 backend，可以直接和 frontend 对接，不用自己实现 CDP 交互。</p>
+<p>比如 vivo 的快应用开发工具，它有编辑器、调试器、模拟器这几部分：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/fd881de59b6044d7bd88569842774dc4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>模拟器渲染的内容能够在调试器里调试，就是调试器集成的 frontend 对接了模拟器的 CDP backend。</p>
+<p>当然，这里就不是通过 WebSocket 的信道了，而是通过其它方式：</p>
+<p>Chrome DevTools 支持多种信道：</p>
+<p>比如 WebSocket 时的通信实现是这样的：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/19ce7f280d1c43b3bc16207796396d1b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>而 electron 环境下是这样的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bee3ff370a2941dabd9a0e50e6b643f1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>嵌入到一个环境的时候是这样的：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f3f11db99c564cca8259965096e7f043~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>而且，像上面那种在一个窗口里渲染，在另一个窗口里调试的这种需求，electron 直接提供了 api 来支持。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/da6a9e4ef65f4a0cbfed641b050afd7b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>使用 setDevToolsWebContents 的 api，就可以让 devtools 的 frontend 显示在任意的窗口里。</p>
+<p>所以，小程序的调试工具实现起来还是很简单的，不但 CDP 交互不用自己实现，而且一个窗口渲染，一个窗口显示 Chrome DevTools frontend 这种功能 electron 都已经提供了。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这节我们探究了下 Chrome DevTools 的实现原理，它只是一个对接了 CDP 的 UI，完全可以用来调试别的 target，只要实现对应的 CDP backend 即可。</p>
+<p>CDP 协议可以在 Protocol Monitor 里看到，分成了多个 Domain，每个 Domain 下有很多 Method 和 Event。</p>
+<p>有很多用 Chrome DevTools 调试别的目标的工具，而前端领域的跨端引擎、小程序引擎也是通过这种方式实现的。</p>
+<p>跨端引擎要自己实现 CDP 协议的对接，而小程序引擎简单一些，本来就有了 CDP backend，对接到 frontend 即可。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/40/">https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/40/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/41/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/42/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">1.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

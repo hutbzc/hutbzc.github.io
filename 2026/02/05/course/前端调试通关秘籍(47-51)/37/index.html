@@ -1,0 +1,335 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Charles 做为主流的代理工具，有很多强大好用的功能，这两节我们就快速过一遍： charles 代理的两种配置方式网页默认是走系统代理。 可以把 Charles 也设置为系统代理，点击 Proxy &gt; macOS Proxy 即可：  这样就能抓到网页的数据包了。  或者不把 charles 设置为系统代理，而是 SwitchyOmega 单独指定网页的代理服务为 charles：  这">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/37/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="Charles 做为主流的代理工具，有很多强大好用的功能，这两节我们就快速过一遍： charles 代理的两种配置方式网页默认是走系统代理。 可以把 Charles 也设置为系统代理，点击 Proxy &gt; macOS Proxy 即可：  这样就能抓到网页的数据包了。  或者不把 charles 设置为系统代理，而是 SwitchyOmega 单独指定网页的代理服务为 charles：  这">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:44.538Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:44.538Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/37/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:44'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:44.538Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:44.538Z" title="更新于 2026-02-05 23:28:44">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>Charles 做为主流的代理工具，有很多强大好用的功能，这两节我们就快速过一遍：</p>
+<h2 id="charles-代理的两种配置方式"><a href="#charles-代理的两种配置方式" class="headerlink" title="charles 代理的两种配置方式"></a>charles 代理的两种配置方式</h2><p>网页默认是走系统代理。</p>
+<p>可以把 Charles 也设置为系统代理，点击 Proxy &gt; macOS Proxy 即可：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/96f0bf72bd07432e9bcfb649a354c337~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这样就能抓到网页的数据包了。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0e357e3105c34eca8d192985eb7388bd~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>或者不把 charles 设置为系统代理，而是 SwitchyOmega 单独指定网页的代理服务为 charles：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3bb9f6a5fbab49c7b4373d606e135d0b~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这里的代理服务的端口可以在 Proxy &gt; proxy Settings 里看到：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/31152db5ac7b4dee823f5af14ae7c2ae~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>当然，更好的方式是 auto switch，也就是根据条件自动切换。</p>
+<p>也就是我们在选项里配置的情景模式：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c6a4ba15a66541919569c94804255018~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这两种还是很容易理解的：</p>
+<ul>
+<li>默认都是走系统代理，所以把 charles 配置为系统代理服务器就可以抓包了</li>
+<li>网页也可以通过 SwitchyOmega 单独指定代理服务器，这时候请求会直接走 charles</li>
+</ul>
+<h2 id="no-caching"><a href="#no-caching" class="headerlink" title="no caching"></a>no caching</h2><p>可以让 http 请求禁用缓存，在 Tools &gt; No Caching 里开启：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ff92116504414a6399eb1444c884bd21~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>当开启之后，你会发现 header 会带上 cache-control: no-cache：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e4afa964a06043909fd8350bb43ad3af~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>no-cache 的意思是会用本地的缓存，但每次都协商。</p>
+<p>而不开启的时候，header 里没有这个：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2ba236f335e74e88a6dbf296229c01ff~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这就是禁用缓存的实现原理。</p>
+<p>其实浏览器的强制刷新也是这么实现的，你可以强刷一下，抓包看看 header。</p>
+<p>除了全部请求禁用缓存外，还可以单独指定某些 url 禁用缓存：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e0ff8a5be3f54dd6be25eaae4deeacba~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="block-cookies"><a href="#block-cookies" class="headerlink" title="block cookies"></a>block cookies</h2><p>这个也很容易理解，就是禁用 cookie 和 set-cookie 的 header：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/755921ab77a64fca98d80e1ffade570d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在 Chrome DevTools 的 Network 里开启这两个 header 的展示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2f815f0593bd40859dd03dfda4f29aa4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>在开启 block cookies 之前，是有请求携带或设置 cookie 的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4f858b768d19434c931bfeac700f8de7~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>开启 block cookies 之后，你会发现所有的 set-cookie 都没有了：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/35e28cf1d5834c55bb0680ce81b1070a~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>但请求还是会带上 cookie，这是因为还没到 charles 那层。</p>
+<p>同样的请求，到 charles 看下，就会发现没有 cookie 了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/420b3ccd1f6440c1b7c1b356f6f4a358~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>关闭 block cookies 之后又有了：<br><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/123261719502498ca445ea782ffa5cb9~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>同样，它也可以单独 block 某些 url：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/dc9ae2ce85984059b8c944fc017d3f2c~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="map-remote"><a href="#map-remote" class="headerlink" title="map remote"></a>map remote</h2><p>charles 可以把请求转发给另一个 url，用 Tools &gt; map remote 的功能：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a7f3fc3d1c5f4b9882ddba1b940b9e19~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如把 <a target="_blank" rel="noopener" href="https://juejin.cn/">https://juejin.cn</a> 转发到 <a target="_blank" rel="noopener" href="https://www.baidu.com/">https://www.baidu.com</a></p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/264b32a748d54c4e82cb37b1bca609c0~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>除了在 Tools &gt; map remote 里开启之外，也可以右键 url 来开启：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/21b8b7dd853c49ecbfa416119e5fe006~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>好处是请求信息不用自己填一遍了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3ee1ab2ad3dd458d9793e6731f4ec208~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>之后也可以在 Tools &gt; map remote 里管理：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7c6a8ca103404b54bb33136fe3ae0996~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="map-local"><a href="#map-local" class="headerlink" title="map local"></a>map local</h2><p>可以把请求转发给另一个 url，也同样可以读取本地的文件内容作为响应，也就是 map local。</p>
+<p>在 Tools &gt; map local 里，或者右键请求都可以设置：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0e0f7081b16143ebba844db477c6403e~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7f64a1f3ef1e443ea0bfe12aacaaf0f4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如把这个 json 文件的请求换成本地的一个 svg 文件：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2e7e58e4944142a2be3dc144d3786fd1~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>map 之前是这样：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0bd0cf777fc34f398abfcf2338277596~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>map 之后就是这样了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/67eb4d28a5a44510b37e4213dfbc5aae~tplv-k3u1fbpfcp-watermark.image"></p>
+<p><strong>map local 功能在移动端开发的时候还是挺常用的，比如把请求的 js、css 等换成本地刚打包出来的，就可以在线上环境调试本地代码。</strong></p>
+<h2 id="Mirror"><a href="#Mirror" class="headerlink" title="Mirror"></a>Mirror</h2><p>mirror 可以把响应内容保存在本地：</p>
+<p>在 Tools &gt; Mirror 里开启 mirror 功能：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0462dbf2f4fb4bb290c9986339c52b27~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>指定保存的位置，之后再访问 url，就会把响应内容保存下来：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1025c5dcd6c14c049857e32459e5ccfe~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>当然，我们没必要全部保存，也可以开启只 mirror 选择的 url，然后指定 url：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7cbd4a9f56074b3d8cdac27668ea6fb4~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>之后在保存的目录下就可以看到该请求的响应数据的文件：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/31597e1737c24615891b01d1e02a4e20~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>但是这个内容是不能修改的，每次刷新都会覆盖，这也是 mirror 镜像的含义。</p>
+<p>但是可以配合 map local 使用，比如把这个响应保存下来，然后再复制到别的地方修改之后再 map local。</p>
+<h2 id="rewrite"><a href="#rewrite" class="headerlink" title="rewrite"></a>rewrite</h2><p>除了转发请求外，自然也支持对请求做修改，也就是 rewrite 功能。</p>
+<p>在 Tools &gt; rewrite 里开启：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/086cc940e898434684b8bb54a88bcbd7~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>支持修改的包括 header、host、path、url、query，response status、body，也就是所有的内容都可以改：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/faa58f60ebbc41f8b16860d3d053cb2d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如我添加一个 query param：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5c9be14a8a8b43a2bc4f853b7d71b4f7~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>效果如下：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/00cbfa3748e4421e84ca4ec7ed4d68d2~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这里操作的时候，如果希望 charles 一直在最上面，可以在 charles &gt; preferences 里开启 always on top：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f7b47b9420364d5eb9173829d19c911d~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>它就一直在上面了：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3f910940cdc146e4aa3b1220669104aa~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="block-list"><a href="#block-list" class="headerlink" title="block list"></a>block list</h2><p>block list 可以禁止一些 url 的请求：</p>
+<p>在 Tools &gt; block list 里：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a6e4bed142e84226b80243a635c562ba~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>处理方式可以是 断开连接或者返回 403。</p>
+<p>当然，也可以右键请求来把它加入到 block list：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8aa9c93a17b8402db2e1227913832eeb~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>比如当设置 block 的 url 的时候：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/88212fcc464343dab80a53b250db96ed~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>效果是这样的：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ae23c441098d4ea1abac74a62213769a~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>当你需要模拟请求失败的时候，可以用这个功能。</p>
+<h2 id="allow-list"><a href="#allow-list" class="headerlink" title="allow list"></a>allow list</h2><p>allow list 和 block list 正好反过来，这个是只允许列表中的 url 的请求：</p>
+<p>比如当设置了 allow list 的时候：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5009a70cb7564aa8a2282ced90d22ba3~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>所有不在列表中的请求都会失败，可以通过 status-code:0 的过滤器过滤出来：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e3019673aa374abc920bb256a8bb3157~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="ssl-proxying"><a href="#ssl-proxying" class="headerlink" title="ssl proxying"></a>ssl proxying</h2><p>https 的代理是很常用的，这个我们上节讲过，需要安装证书到系统。</p>
+<p>默认抓取到的 https 的数据是加密过的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7fc4b6db9f21438daa1f2afe5aa8de6f~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>因为 https 会用证书里的公钥加密请求，用私钥加密响应数据：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b517aad07b9640f7ade178defcb36c93~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>想要抓取明文数据，需要把证书换成 charles 的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3c7ce0a2e429453b9f0dd75d851064ae~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>首先，在 Proxy &gt;  SSL Proxying Settings 里开启这个功能：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d48a731bda8b4722936125588994f3d7~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后点击 help &gt; SSL Proxying &gt; Install Charles Root Certificate，把 charles 证书安装到系统的钥匙串中并信任：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5569ddeb00cd4f79ae6eef2fbaa71aff~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>这样证书就换成了 charles 的并被标记为信任：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/59df492f3a094315a3ef1e2ae5cd8d4e~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>也就能抓到明文数据了：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bf8120c972994be4b008e32a0105f03c~tplv-k3u1fbpfcp-watermark.image"></p>
+<h2 id="breakpoints"><a href="#breakpoints" class="headerlink" title="breakpoints"></a>breakpoints</h2><p>断点同样是很常用的功能，这个上节也讲过。</p>
+<p>在 Proxy &gt; Enable breakpoints 开启这个功能：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0700d1ca64064c198d80767af58193e6~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后在 Proxy &gt; Breakpoint Settings 里配置：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0c778e8432704d31ae55561e80135d87~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>可以单独开启请求&#x2F;响应的断点：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b36d59564f1040f1ab791f97a1263786~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>或者右键请求来设置：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a9f4287b4470444bbcd9119943c1bf85~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>再发送请求的时候或响应的时候就会断住：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/97d757064a414b1193e3637db20e7c71~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>可以修改各种内容：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/de71599275de46bab99950b26f1dcaf7~tplv-k3u1fbpfcp-watermark.image"></p>
+<p>然后 execute 即可。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这节我们过了 charles 一些常用的功能：</p>
+<p>首先设置代理可以用 SwitchyOmega 单独指定网页的代理服务器为 charles，也可以直接把 charles 设置为系统代理。</p>
+<p>然后我们学习了常用的 charles 代理功能：</p>
+<ul>
+<li>no caching： 禁用缓存</li>
+<li>block cookies：禁用 cookie</li>
+<li>map remote：转发请求到另一个 url</li>
+<li>map local：用本地的文件作为该请求的响应内容</li>
+<li>mirror：把响应保存在本地文件</li>
+<li>rewrite： 重写请求或响应的各种数据</li>
+<li>block list：禁止一些 url 的请求</li>
+<li>allow list：只允许一些 url 的请求</li>
+<li>SSL Proxying：代理 https 请求，用 charles 自己的证书，需要安装 charles 证书到系统并信任</li>
+<li>breakpoints：断点修改请求&#x2F;响应</li>
+</ul>
+<p>这些功能中有重合的部分，比如可以通过 rewrite 实现 no caching 的功能，也就是修改 cache-control 的 header，比如 rewrite 的功能和 breakpoint 的功能很类似，但不同的场景下直接用对应的功能会更方便。</p>
+<p>这些是比较常用的 charles 代理功能了，下节我们继续学习其余的功能。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/37/">https://hutbzc.github.io/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/37/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/36/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E5%89%8D%E7%AB%AF%E8%B0%83%E8%AF%95%E9%80%9A%E5%85%B3%E7%A7%98%E7%B1%8D(47-51)/38/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">196</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#charles-%E4%BB%A3%E7%90%86%E7%9A%84%E4%B8%A4%E7%A7%8D%E9%85%8D%E7%BD%AE%E6%96%B9%E5%BC%8F"><span class="toc-number">1.</span> <span class="toc-text">charles 代理的两种配置方式</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#no-caching"><span class="toc-number">2.</span> <span class="toc-text">no caching</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#block-cookies"><span class="toc-number">3.</span> <span class="toc-text">block cookies</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#map-remote"><span class="toc-number">4.</span> <span class="toc-text">map remote</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#map-local"><span class="toc-number">5.</span> <span class="toc-text">map local</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Mirror"><span class="toc-number">6.</span> <span class="toc-text">Mirror</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#rewrite"><span class="toc-number">7.</span> <span class="toc-text">rewrite</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#block-list"><span class="toc-number">8.</span> <span class="toc-text">block list</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#allow-list"><span class="toc-number">9.</span> <span class="toc-text">allow list</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#ssl-proxying"><span class="toc-number">10.</span> <span class="toc-text">ssl proxying</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#breakpoints"><span class="toc-number">11.</span> <span class="toc-text">breakpoints</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">12.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:44.553Z" title="发表于 2026-02-05 23:28:44">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
