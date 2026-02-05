@@ -1,0 +1,285 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="介绍完 Redis 概述之后，本文我们就通过源码的方式，来安装一下 Redis 7.0。同时，也把阅读 Redis 的源码环境搭起来。 前面我们讲过 Redis 一般是部署在 Linux 系统上面，所以我们这里，就在 Mac 或者是在 Linux 上进行搭建，Windows 的话，就不太建议你去浪费时间搞这个了。 如果你手里只有 Windows 机器的话，也可以安一个虚拟机，在上面装一个 Linu">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC04%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9ARedis7.0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E4%B8%8EPR%E9%98%85%E8%AF%BB%E6%8C%87%E5%AF%BC/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="介绍完 Redis 概述之后，本文我们就通过源码的方式，来安装一下 Redis 7.0。同时，也把阅读 Redis 的源码环境搭起来。 前面我们讲过 Redis 一般是部署在 Linux 系统上面，所以我们这里，就在 Mac 或者是在 Linux 上进行搭建，Windows 的话，就不太建议你去浪费时间搞这个了。 如果你手里只有 Windows 机器的话，也可以安一个虚拟机，在上面装一个 Linu">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.701Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.701Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC04%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9ARedis7.0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E4%B8%8EPR%E9%98%85%E8%AF%BB%E6%8C%87%E5%AF%BC/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.701Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.701Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>介绍完 Redis 概述之后，本文我们就通过源码的方式，来<strong>安装一下 Redis 7.0</strong>。同时，也把阅读 Redis 的<strong>源码环境</strong>搭起来。</p>
+<p>前面我们讲过 Redis 一般是部署在 Linux 系统上面，所以我们这里，就在 <code>Mac</code> 或者是在<code> Linux</code> 上进行搭建，Windows 的话，就不太建议你去浪费时间搞这个了。</p>
+<p>如果你手里只有 Windows 机器的话，也可以安一个<code>虚拟机</code>，在上面装一个 Linux，然后再去搭建 Redis 环境。后面我们可以用 IDE 远程连到这个虚拟机上进行 Debug，非常不建议你浪费时间在 Windows 上做 Redis 的编译或者是安装，没有啥太大意义。</p>
+<blockquote>
+<p>说明：本小节的内容整体还是比较简单的，如果小伙伴不知道如何搭建 Redis 7 源码环境或者不知道怎么查看一个 Redis 7 新特性实现的话，可以跟着本小节一步步操作，我也是希望能尽量照顾到各个基础水平的小伙伴，做好铺垫，打好基础，在刚开始学习时有个平滑的学习曲线，这样咱们后续学习就能减少在基础知识上的磕磕绊绊，这也是我们“先导基础篇”的设置初衷。</p>
+<p>当然，肯定有小伙伴基础水平很不错，已经完全掌握些细碎的知识了，建议你跳过，直接学习下面的内容。</p>
+</blockquote>
+<h2 id="Redis-7-环境搭建"><a href="#Redis-7-环境搭建" class="headerlink" title="Redis 7 环境搭建"></a>Redis 7 环境搭建</h2><p>下面我们先来搭建 Redis 7.0 的环境，这也是我们后面实践 Redis 命令以及分析 Redis 核心源码的基础，小伙伴们一定要跟着本小节的步骤，在自己机器上搭建出一套可以进行 Debug 运行的 Redis 7 源码环境。</p>
+<h3 id="1-获取-Redis-源码"><a href="#1-获取-Redis-源码" class="headerlink" title="1. 获取 Redis 源码"></a>1. 获取 Redis 源码</h3><p>获取 Redis 源码还是比较简单的，可以有两种方式来实现。</p>
+<p><strong>第一种方式，直接从官网下载 Redis 源码压缩包</strong>。如下图，我们直接从官网上下载 7.0.4 这个版本的源码：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/121fd09e2dd04dcebe152444f58a563b~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>下载之后，得到一个名为 <code>redis-7.0.4.tar.gz</code> 的压缩包，如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/beaf4ff4ca8e460e88a3000edb0add6a~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>然后解压 <code>redis-7.0.4.tar.gz</code>，得到下面展示的 redis-7.0.4 这个文件夹：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bcbd8a0205884148ab69c95be99a8d06~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p><strong>第二种方式，通过 git clone 方式获取源码。</strong></p>
+<p>要是你已经安装了 git 的话，就可以通过 git clone 的方式，从 GitHub 上直接 clone 一份 Redis 的源码下来，具体命令如下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/redis/redis.git</span><br></pre></td></tr></table></figure>
+
+<p>git clone 命令执行完成之后，可以看到 <code>done</code> 这个字样。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ac233c67182a4a798613b97827ec0b51~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>下载完之后，来看 redis_source 这个目录下面，新增了一个 redis 目录，就是 clone 下来的<strong>源码</strong>。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7789367a6f0746c4aae1b9f26fd0e558~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>然后命令行进入到这个 redis 目录里面，看到当前的分支是 unstable 分支，我们执行 <code>git checkout</code> 命令，切换到 <code>7.0.4</code> 这个 tag 上去：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">git checkout tags/7.0.4 -b 7.0.4</span><br></pre></td></tr></table></figure>
+
+
+
+<h3 id="2-编译-Redis"><a href="#2-编译-Redis" class="headerlink" title="2. 编译 Redis"></a>2. 编译 Redis</h3><p>在编译之前，我们先要<strong>保证机器上有 C 和 C++ 的编译器，也就是 GCC</strong>。</p>
+<p>如果是在 Mac 电脑上的话，我们用的是 clang，clang 是兼容 gcc 的一个编译器。我们可以用 <code>clang --version</code> 这个命令看一下，当前是不是已经安装了 clang：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3b1926091fb4416a80f7d805831d57a9~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>执行 <code>gcc -v</code> 命令也行：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0ff11030e55c4bd5b60f6bb29bd04e10~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>要是没有安装的话，可以通过下面这个命令安装一下：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">xcode-select --install</span><br></pre></td></tr></table></figure>
+
+
+<p>如果是在 Linux 的机器上，我们也是通过 <code>gcc -v</code> 命令来查看当前 gcc 是否已经安装好了。要是没有安装好的话，就执行下面的 <code>yum</code> 命令进行安装：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install gcc</span><br></pre></td></tr></table></figure>
+
+<p>回车之后，一路输入 y 就行了。</p>
+<p>准备好了 GCC 之后，我们就来到那个 Redis 的源码目录里面，然后直接执行 make 命令就可以了。这里你可以不用深入了解 make 命令，就把它当成 Java 里面的 mvn 命令就行，用来编译 C 语言代码的一个命令。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">make CFLAGS=&quot;-g -O0&quot; </span><br></pre></td></tr></table></figure>
+
+
+
+<p>编译成功之后，会看到下面的这个 Hint 提示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/83065d3a51d7430c826194953b065eeb~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里的 make 命令带了一个“-O0”参数，正常编译的时候，编辑器会帮我们优化代码，这就会导致我们后面 Debug 的时候，IDE 里的 Redis 源码和实际运行的代码对不上，所以我们这里通过 “-O0” 参数告诉编译器，不要进行优化。</p>
+<p>如果我们是要直接编译出一个线上运行的 Redis 的话，我们不用带这个参数，直接用 make 命令：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">make</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="3-启动-Redis"><a href="#3-启动-Redis" class="headerlink" title="3. 启动 Redis"></a>3. 启动 Redis</h3><p>编译完成之后，我们在 Redis 的 src 源码目录下面，可以看到一个 redis-server 的可执行程序。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5689d36895c84b8cb3a435ce925fec18~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>我们<strong>可以直接执行 <code>redis-server</code>，Redis 就跑起来了</strong>。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./redis-server</span><br></pre></td></tr></table></figure>
+
+
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/46047d84d49c4d859138e1fb69a73a8d~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>也可以给 redis-server 指定一个配置文件，在 redis 源码的根目录里面可以找到一个默认的 redis.conf 配置文件：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./redis-server ../redis.conf</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="Redis-7-源码环境搭建"><a href="#Redis-7-源码环境搭建" class="headerlink" title="Redis 7 源码环境搭建"></a>Redis 7 源码环境搭建</h2><p>为了后面更方便地阅读 Redis 的源码，我们需要安装一个 CLion，<strong>CLion 可以认为是用来写 C 和 C++ 的 IDEA</strong>。官网是这个 <a target="_blank" rel="noopener" href="https://www.jetbrains.com/clion/">https://www.jetbrains.com/clion/</a> ，可以试用三十天，超过三十天，就需要你自己想办法了，你懂的。</p>
+<p>安装完 CLion 之后，我们把 Redis 的源码导入进来。打开 CLion 之后，点 Open，找到 Redis 源码目录，然后点确定就行了。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/67b6e9a66488437ca4eab5698666bf23~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>导入的时候需要扫描全部的文件，建立文件索引，可能会比较慢。导入之后就是这样了：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8a8e5e4d51e3489ba07d2d73a91d1b3b~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>在右上角的这个运行框里面，要配置一下 redis-server 这个启动项。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b19dc24bc20b492bba4bd0c921bdd1a0~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里把 Executtable 配置成编译出来的 redis-server 文件，然后 Program arguments 配置成 redis 源码自带的 redis.conf 文件的绝对路径。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5a4595ce7f88463a94e93743117e206b~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>然后，在 server.c 里面的 main() 方法加个断点，Debug 启动 redis-server，就能进行 Redis 源码的 Debug 了。</p>
+<h2 id="怎么看-Redis-7-0-0-的新特性"><a href="#怎么看-Redis-7-0-0-的新特性" class="headerlink" title="怎么看 Redis 7.0.0 的新特性"></a>怎么看 Redis 7.0.0 的新特性</h2><p>Redis 在我们准备欢度 2022 年五一假期的前两天，偷偷摸摸地发布了 7.0 的第一个 Release 版本，号称是进行了非常大的性能优化。</p>
+<p>这里我先带你逛一下 Redis 7.0 版本的 Release Note，让你了解一下如何看 Redis 的 PR。在 <a target="_blank" rel="noopener" href="https://redis.io/download/">Redis 官网</a>，可以看到 “7.0 Release Notes” 这个链接，<a target="_blank" rel="noopener" href="https://raw.githubusercontent.com/redis/redis/7.0/00-RELEASENOTES">点进去</a>，就能看到 Redis 7.0 版本更新了哪些东西。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/11c84084b75743d393a05f7b0f2b020c~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>点开之后的情况如下截图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/502f776562b64fa69629a36322ae47ee~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>可以看到 Release Notes 开头是一个更新级别的说明：CRITICAL 级别的升级，一般是修复了一个非常严重的 Bug，这个 Bug 会影响非常多的用户；HIGH 级别的更新，也是表示修复严重了 Bug，但是这个 Bug 只会影响部分用户，但是也建议升级；LOW 级别的更新，可能只是增加了某些新特性，升不升级就看我们的需求了。再往下，就是下面各个版本的具体更新了，可以看到 <strong>Redis 7.0.4 是一次 SECURITY 级别的升级，里面更新了一些安全漏洞</strong>。</p>
+<p>在某些版本的 Release Note 下面，会添加一些新特性，比如 7.0.0 GA 这个版本中，就有一个 New Feature 的说明：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/240bad57aafe4c9bbce221fc35001008~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这个 Feature 的大致功能是，添加一个 Key 到 Redis 里面的时候，会触发一个通知。这个后面的 <code>#10512</code> 是 GitHub 上的 PR 的编号，我们一起去看看这个 PR。先去 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/pulls">Redis 的 PR 页面</a>，然后搜 10512，就得到了下图所示的界面：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/55aa2384b09f47a984420ff4d3f7191d~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>点进去就能看到这个 PR 下的讨论，然后 Commit 是提交了两次，改了 6 个文件，改的地方，我们都可以看到。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4db98206c7514f7c8f014a08629f7bff~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>一个 PR 具体做了什么事情，相关的讨论是什么以及修改了哪些代码，就先带你看到这里。</p>
+<p>我们回到 Release Note 继续看。一般一个 Release 版本前面，会有多个 RC 版本，这些 RC 版本的 Release Note 也会在这里，比如，这里看到的 RC3、RC2 的 Release Note。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9f9f57bcbefe4404a9988f2f9e075ae6~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>每个 Release Note 分成了 New Feature（新特性）、性能提升和资源优化（Performance and resource utilization improvements）、可能不兼容的修改（Potentially Breaking Changes）、新配置项（New configuration options）等，非常多门类的修改，每个修改后面对应的 PR 也都有，你可以挑几个感兴趣的去看看。</p>
+<p>我个人可能会比较关注<code>性能提升</code>这部分的修改，比如说，Redis 7.0 RC1 里面，就有这么一行：Hash、List、ZSet 这些数据结构底层本来是依赖 ziplist 的，在这个版本里面，已经修改成了 listpack。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c16dd18810f248febc9b2aeb97625adf~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>本课程后面还是会详细介绍 ziplist 这个结构的，毕竟现在线上跑的大部分还是 Redis 6 或者 Redis 5。升级到 Redis 7 的事情，可以先等等，等到 Redis7.2 之类的超级稳定版出来再升级也来得及，我们可以先做知识储备。</p>
+<p>这么多的 Release Note 修改，是不是看得很痛苦，其实有人会帮我们总结和翻译，比如，<a target="_blank" rel="noopener" href="https://redis.com/blog/redis-7-generally-available/">Redis 社区里面发的这种总结性博客</a>：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e7ba60e40bcb424d8df0bcf7843665e9~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>大概就是说，Redis 7.0 里面新增了 Function、ACL v2、Shard PubSub 这些功能，新增了 50 多条命令。</p>
+<p>当然，也有不少国内小伙伴主动翻译上面这些文档，你可以自行搜索和学习，不过，一定要注意下翻译的版本和发布时间，别搞错了就行。</p>
+<p>总之，逛完之后，是不是发现 Redis 7.0 相较于 Redis 6 来说，变更还是挺大的呢？</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这篇文章比较简单，就是带你搭了一个 Redis 源码环境，你一定要自己动手搭建一下，后面分析 Redis 实现的时候，就可以事半功倍。然后就是和你一起去看了一下 Redis 7.0 的 Release Note，了解了一下 Redis 的新特性从哪里看，如何找到每个新新特性对应的 PR，以及这些新特性都有哪些相关的讨论和代码提交。</p>
+<p>这整体比较简单哈，接下来我们就进入“Redis 的实战应用篇”，我会带你一起学习一下 Redis 中五大类结构的常用命令，以及这五类结构在实战场景中的使用。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC04%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9ARedis7.0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E4%B8%8EPR%E9%98%85%E8%AF%BB%E6%8C%87%E5%AF%BC/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC04%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9ARedis7.0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E4%B8%8EPR%E9%98%85%E8%AF%BB%E6%8C%87%E5%AF%BC/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC03%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9A10%E5%88%86%E9%92%9FC%E8%AF%AD%E8%A8%80%E5%85%A5%E9%97%A8/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC05%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9ARedisString%E5%91%BD%E4%BB%A4%E4%B8%8E%E5%AE%9E%E6%88%98/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis-7-%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-number">1.</span> <span class="toc-text">Redis 7 环境搭建</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%8E%B7%E5%8F%96-Redis-%E6%BA%90%E7%A0%81"><span class="toc-number">1.1.</span> <span class="toc-text">1. 获取 Redis 源码</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E7%BC%96%E8%AF%91-Redis"><span class="toc-number">1.2.</span> <span class="toc-text">2. 编译 Redis</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%90%AF%E5%8A%A8-Redis"><span class="toc-number">1.3.</span> <span class="toc-text">3. 启动 Redis</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis-7-%E6%BA%90%E7%A0%81%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA"><span class="toc-number">2.</span> <span class="toc-text">Redis 7 源码环境搭建</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%8E%E4%B9%88%E7%9C%8B-Redis-7-0-0-%E7%9A%84%E6%96%B0%E7%89%B9%E6%80%A7"><span class="toc-number">3.</span> <span class="toc-text">怎么看 Redis 7.0.0 的新特性</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

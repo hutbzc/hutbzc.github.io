@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Redis 五大基础数据结构里面，我们已经介绍完了 String、List 两个，这一节，我们就开始介绍一下哈希表部分的内容。 这里我们先简单介绍一下 Hash 的底层结构：Hash 由数组和链表两种数据结构组成，数组里面每个元素就是一个槽位，一个槽位下面挂了一个链表。写入 field-value 数据的时候，会计算 field 的 hash 值，然后对数据长度进行取模，找到对应的槽位，把 fie">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC08%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AHash%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8A%EF%BC%89/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="Redis 五大基础数据结构里面，我们已经介绍完了 String、List 两个，这一节，我们就开始介绍一下哈希表部分的内容。 这里我们先简单介绍一下 Hash 的底层结构：Hash 由数组和链表两种数据结构组成，数组里面每个元素就是一个槽位，一个槽位下面挂了一个链表。写入 field-value 数据的时候，会计算 field 的 hash 值，然后对数据长度进行取模，找到对应的槽位，把 fie">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.702Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.702Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC08%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AHash%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8A%EF%BC%89/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.702Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.702Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>Redis 五大基础数据结构里面，我们已经介绍完了 String、List 两个，这一节，我们就开始介绍一下哈希表部分的内容。</p>
+<p>这里我们先简单介绍一下 Hash 的底层结构：Hash 由<strong>数组</strong>和<strong>链表</strong>两种数据结构组成，数组里面每个元素就是一个槽位，一个槽位下面挂了一个链表。写入 field-value 数据的时候，会计算 field 的 hash 值，然后对数据长度进行取模，找到对应的槽位，把 field-value 插入到这个链表里面。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3f248dd0b76b449ba8c3b41d01c18cc5~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>了解了 Redis 里面哈希表的大概结构之后，我们再来看看 Hash 表的命令，大概分成三类，如下图所示（本节我们也将按照该图的思路去进行介绍）：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/aed9af96c59948599ddd775ba16e49fb~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="读写操作"><a href="#读写操作" class="headerlink" title="读写操作"></a>读写操作</h2><p><strong>哈希表里面最简单、最常用的操作，就是读写 field-value 数据，对应的就是 <code>HGET</code>、<code>HSET</code>命令。</strong></p>
+<p>下面先来演示一下 HSET 命令，HSET 命令的第一个参数是哈希表 Key 的名称，后面跟的才是 field-value 数据，示例中的 field 名称是 name，value 值是 kouzhaoxuejie。HSET 执行后的返回值为 1，表示成功写入了一个键值对。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSET testHash name kouzhaoxuejie</span><br><span class="line">(integer) 1</span><br></pre></td></tr></table></figure>
+
+<p>然后再来演示一下 HGET 命令，这里 HGET 命令告诉 Redis 要从 testHash 这个 Hash 里面查询数据，查的是 name 这个 field，返回的就是对应的 value 值。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HGET testHash name</span><br><span class="line">&quot;kouzhaoxuejie&quot;</span><br></pre></td></tr></table></figure>
+
+<p>HSET 命令后面其实是可以跟多个 field-value 值，例如，下面把身高、年龄都作为 field-value 数据加到 testHash 这个哈希表里面去。然后，用 <code>HMGET</code> 这个命令去<code>批量拿</code>一下哈希表里面的 field，HMGET 命令后面可以跟多个 field，例如下面示例中的 name、age、height，返回值顺序就是 HMGET 命令取到的 value 值，顺序也和 field 一致。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSET testHash age 25 height 170</span><br><span class="line">(integer) 2</span><br><span class="line">127.0.0.1:6379&gt; HMGET testHash name age height</span><br><span class="line">1) &quot;kouzhaoxuejie&quot;</span><br><span class="line">2) &quot;25&quot;</span><br><span class="line">3) &quot;170&quot;</span><br></pre></td></tr></table></figure>
+
+
+<p>我们前面介绍字符串时候，介绍了一个 SET… NX 命令，哈希表里面也有一个类似的命令 —— <code>HSETNX </code>命令。下面我们尝试用 HSETNX 命令，把 name 这个 field 的值改成 kouzhao，但是由于这个 Key 已经存在了，写入失败了。然后，尝试用 HSETNX 写入存 weight 这个 field，由于 weight 这个 field 不存在，所以能写入成功了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSETNX testHash name kouzhao</span><br><span class="line">(integer) 0</span><br><span class="line">127.0.0.1:6379&gt; HGET testHash name</span><br><span class="line">&quot;kouzhaoxuejie&quot;</span><br><span class="line">127.0.0.1:6379&gt; HSETNX testHash weight 100</span><br><span class="line">(integer) 1</span><br><span class="line">127.0.0.1:6379&gt; HGET testHash weight</span><br><span class="line">&quot;100&quot;</span><br></pre></td></tr></table></figure>
+
+<p>在有的场景中，我们不知道一个哈希表里面是不是已经有了指定的 field，此时，就可以用 <code>HEXISTS</code> 命令来检查一下。下面的示例中，这里我先检查了一下 name 这个 field，返回值为 1，表示这个 field 存在；然后，检查了 weight 这个 field，返回 0，则说明这个 field 在 testHash 里面没有。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HEXISTS testHash name</span><br><span class="line">(integer) 1</span><br><span class="line">127.0.0.1:6379&gt; HEXISTS testHash weight</span><br><span class="line">(integer) 0</span><br></pre></td></tr></table></figure>
+
+
+<p>最后一个读写命令是 <code>HDEL</code>，就是<strong>从哈希表里面删除一个 field</strong>，我们把 weight 这个 field 删掉，然后再用 HGET 命令查询，就查不到了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HDEL testHash weight</span><br><span class="line">(integer) 1</span><br><span class="line">127.0.0.1:6379&gt; HGET testHash weight</span><br><span class="line">(nil)</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="递增操作"><a href="#递增操作" class="headerlink" title="递增操作"></a>递增操作</h2><p>在介绍字符串的时候，我们介绍了一个 INCRBY 命令，在 Hash 表里面也有个类似的命令，可以来<strong>递增 Hash 表中的一个 value 值</strong>，这个命令就是 <code>HINCRBY</code>。</p>
+<p>下面的示例就是用 HINCRBY 命令将 testHash 中 fans 的值增加了 2，HINCRBY 命令的返回值就是递增之后的结果值。如果我们增加一个负值，就实现了减法的操作，这里就不再演示了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSET testHash fans 100</span><br><span class="line">(integer) 1</span><br><span class="line">127.0.0.1:6379&gt; HINCRBY testHash fans 2</span><br><span class="line">(integer) 102</span><br></pre></td></tr></table></figure>
+
+
+<p>除了增减整数之外，我们还可以用 <code>HINCRBYFLOAT</code> 命令来<strong>增减小数</strong>。例如下面的示例中，账户中本来有 100 块钱，然后花掉了 50 块零 5 毛，那就用 HINCRBYFLOAT 命令在 account 这个 field 上加 -50.5，得到返回值为 49.5。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSET testHash account 100</span><br><span class="line">(integer) 1</span><br><span class="line">127.0.0.1:6379&gt; HGET testHash account</span><br><span class="line">&quot;100&quot;</span><br><span class="line">127.0.0.1:6379&gt; HINCRBYFLOAT testHash account -50.5</span><br><span class="line">&quot;49.5&quot;</span><br><span class="line">127.0.0.1:6379&gt; HGET testHash account</span><br><span class="line">&quot;49.5&quot;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="批量读取"><a href="#批量读取" class="headerlink" title="批量读取"></a>批量读取</h2><p>有的场景中，我们需要迭代哈希表里面全部的 field-value 值。对于元素比较少、数据小的哈希表，可以考虑用 <code>HGETALL</code> 命令，<strong>拿到全部的 field-value 值</strong>。</p>
+<p>下面来看个例子，用 HGETALL 命令查 testHash 里面的全部 field-value 值，从下面的输出可以看到，返回值是 field-value 交替返回的。如果<strong>只想获取哈希表里面的 field 值</strong>，可以使用 <code>HKEYS</code> 命令；如果<strong>只想获取哈希表里面的 value 值</strong>，可以使用 <code>HVALS</code> 命令。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HGETALL testHash</span><br><span class="line"> 1) &quot;name&quot;</span><br><span class="line"> 2) &quot;kouzhaoxuejie&quot;</span><br><span class="line"> 3) &quot;age&quot;</span><br><span class="line"> 4) &quot;26&quot;</span><br><span class="line"> 5) &quot;height&quot;</span><br><span class="line"> 6) &quot;170&quot;</span><br><span class="line"> 7) &quot;fans&quot;</span><br><span class="line"> 8) &quot;102&quot;</span><br><span class="line"> 9) &quot;account&quot;</span><br><span class="line">10) &quot;49.5&quot;</span><br><span class="line">127.0.0.1:6379&gt; HKEYS testHash</span><br><span class="line">1) &quot;name&quot;</span><br><span class="line">2) &quot;age&quot;</span><br><span class="line">3) &quot;height&quot;</span><br><span class="line">4) &quot;fans&quot;</span><br><span class="line">5) &quot;account&quot;</span><br><span class="line">127.0.0.1:6379&gt; HVALS testHash</span><br><span class="line">1) &quot;kouzhaoxuejie&quot;</span><br><span class="line">2) &quot;26&quot;</span><br><span class="line">3) &quot;170&quot;</span><br><span class="line">4) &quot;102&quot;</span><br><span class="line">5) &quot;49.5&quot;</span><br></pre></td></tr></table></figure>
+
+
+<p>重点强调一下，这三个全量获取哈希表数据的命令，只适合查询小数据量的哈希表。对于数据量很大的哈希表，这三个命令就会把整个 Redis 阻塞掉，所以<code>在生产环境中一般是禁用这三个命令的</code>。</p>
+<p>那如果在生产环境中要获取整个哈希表的内容，应该怎么办呢？可以使用 <code>HSCAN 命令</code>。这里先介绍一下 HSCAN 命令的原理：<strong>HSCAN 是把一次获取哈希表全量数据的这个操作，拆成了多次迭代，一次迭代只返回一部分数据，这样的话，每次访问的数据量就小了很多，也就不会阻塞 Redis 了</strong>。</p>
+<p>HSCAN 命令的完整格式是这样：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">HSCAN key cursor [MATCH pattern] [COUNT count]</span><br></pre></td></tr></table></figure>
+
+
+<p>HSCAN 命令后面的 key 是我们要扫描的哈希表的名称。cursor 是游标的意思，其实就是个数字，你可以把 cursor 理解为一次迭代的结束位置，也是下次迭代的开始位置，它用来告诉 Redis 从哪里开始下一次迭代。MATCH 部分，就像是 SQL 语句里面的 where 条件一样，按照一定的格式来过滤 field。COUNT 部分就像是 SQL语句里面的 limit，但是这个 COUNT 只是提示 Redis 应该返回多少条数据，不是严格控制，具体返回多少条数据，可以先简单认为是看 Redis 心情，后面分析哈希表底层实现的时候，我们会看到为什么 COUNT 无法做到严格限制。</p>
+<p>下面我们还是通过一个示例来说明 HSCAN 命令的具体使用方式。在下面的 testClass 这个哈希表里面，有 1000 个学生的指纹信息，这里随机抽几个学生的指纹信息看一眼，student1、student2 这两个学生的指纹信息是加密的编码；之后，用 HLEN 命令来看一下 testClass 里面有多少条指纹信息，总共 1000 个。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HMGET testClass student1 student2</span><br><span class="line">1) &quot;wIBWRf4hDR8S1ZoHjR7FfdCDugOXPuZOujiVaUMUZPUs9iTgqI3B42Dq3YIUD3VaVExK4cSXYKhS4BxDMrvmlXIhg67vTMdSuJ0P&quot;</span><br><span class="line">2) &quot;dNYQiDUtSgq0TaNV1I1ikKliROxeejZx12tFkOka5YAfD2M28c1Oh5ZNTKImkd8lEn3xjmz1qzDgTt19sOLWoD6KSH2fs3GayTA0&quot;</span><br><span class="line">127.0.0.1:6379&gt; HLEN testClass</span><br><span class="line">(integer) 1000</span><br></pre></td></tr></table></figure>
+
+
+<p>然后用 HSCAN 命令扫描 testClass，第一次扫描的时候，游标是 0。返回值的第一行是 192，也就是下次迭代要用的游标值，具体为什么是 192，你现在可以先暂时不用关心，我们也会在解析哈希表底层实现的时候，说这个游标值的具体含义。后面就是返回的 10 条学生指纹。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSCAN testClass 0</span><br><span class="line">1) &quot;192&quot;</span><br><span class="line">2)  1) &quot;student849&quot;</span><br><span class="line">    2) &quot;fNCL8APpOaV4lGBhRAQ5guzZId1oidlevkolQ3g1efxP28DLj7wY5AFwvScDjiffXrFw14hBIA1sddVnzcGsRxQqjWkAOJckUjfp&quot;</span><br><span class="line">    3)... // 省略后面的输出</span><br></pre></td></tr></table></figure>
+
+
+<p>在继续下一次迭代的时候，我们需要把游标值指定成 192，此次迭代的返回值中，游标值是 160；再往后迭代就要用 160 这个游标值了。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HSCAN testClass 192</span><br><span class="line">1) &quot;160&quot;</span><br><span class="line">2)  1) &quot;student871&quot;</span><br><span class="line">    2) &quot;5V3GprLjtYXDKWe4f7A6pQ7hNKaXxKxb2dXQZwA5wS2qIeoRLqdLIiUIou1QmXG2f4eOSUHyQ65F6kcYTEvgkDVxjmJeuVratqGp&quot;</span><br><span class="line">    3)... // 省略后面的输出</span><br><span class="line"></span><br><span class="line">127.0.0.1:6379&gt; HSCAN testClass 160</span><br><span class="line">1) &quot;480&quot;</span><br><span class="line">2)  1) &quot;student893&quot;</span><br><span class="line">    2) &quot;JPrkMjIMxtYEcfr6aZJsBk055K2FNJ3i9y1e0zWPlBiWhm7xRDhn2mJlhbufbWuHu8tDN91Wx9Ts4t1HLSeBj8caV8ZBkG11NJZu&quot;</span><br><span class="line">    3)... // 省略后面的输出</span><br></pre></td></tr></table></figure>
+
+
+<p>下面这张图大概就是 HSCAN 迭代的原理：第一次迭代，从 0 开始，迭代到 192 这个位置，返回的是 0 ~ 192 两个游标之间的内容；然后第二次是从 192 开始迭代，迭代到 160 这个位置，返回的是 192 ~ 160 两个游标之间的内容；第三次是从 160 迭代到 480 这个位置，返回的是 160 ~ 480 两个游标之间的内容。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/00251201c23741d5ac7231a2eb51cccb~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="其他命令"><a href="#其他命令" class="headerlink" title="其他命令"></a>其他命令</h2><p>Hash 命令的最后一个分类中，有 HLEN、HSTRLEN、HRANDFIELD 三条命令。<code>HLEN</code> 命令在前面使用过了，它的功能是<strong>查看哈希表里面有多少条 field-value 数据</strong>，这个不再重复介绍了。</p>
+<p><strong><code>HSTRLEN</code> 命令是查看一个 value 的长度</strong>。下面的示例中，就是使用 HSTRLEN 命令查看一下 name 和 age 两个 field 对应 value 值的长度，一个是 13，一个是 2。注意，age 对应的 value 值虽然是个整数，HSTRLEN 还是当成字符串来算长度。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HMGET testHash name age</span><br><span class="line">1) &quot;kouzhaoxuejie&quot;</span><br><span class="line">2) &quot;26&quot;</span><br><span class="line">127.0.0.1:6379&gt; HSTRLEN testHash name</span><br><span class="line">(integer) 13</span><br><span class="line">127.0.0.1:6379&gt; HSTRLEN testHash age</span><br><span class="line">(integer) 2</span><br></pre></td></tr></table></figure>
+
+<p><strong><code>HRANDFIELD</code> 命令的功能是从哈希表中随机返回 field-value 数据</strong>。下面的示例中，从 testClass 里面随机返回三个学生指纹信息，HRANDFIELD 命令中的 3 这个参数，就是随机返回 field-value 数据的条数，WITHVALUES 参数的含义是同时返回 field 和 value 的值 ，如果不指定 WITHVALUES 的话，就只会返回 3 个 field。</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; HRANDFIELD testClass 3 WITHVALUES</span><br><span class="line">1) &quot;student848&quot;</span><br><span class="line">2) &quot;VcBYTGptdmdBOPv...&quot;</span><br><span class="line">3) &quot;student565&quot;</span><br><span class="line">4) &quot;QLgIsHXLGrefPS...&quot;</span><br><span class="line">5) &quot;student559&quot;</span><br><span class="line">6) &quot;GkRWcJOZJtuidJz0HQ...&quot;</span><br><span class="line">    </span><br><span class="line">127.0.0.1:6379&gt; HRANDFIELD testClass 3</span><br><span class="line">1) &quot;student47&quot;</span><br><span class="line">2) &quot;student185&quot;</span><br><span class="line">3) &quot;student391&quot;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这一小节，我们重点介绍了 Redis 哈希表的核心命令，主要分为读写命令、递增命令、批量命令以及其他命令四大类。</p>
+<p>其中，读写命令中比较重要的是 HSET 和 HGET 命令，递增命令可以帮我们实现哈希表中单个 Value 的原子递增操作，批量读取命令一般用于线上的离线任务，批量处理哈希表中的数据，为了防止一次读取大量数据导致性能问题，一般使用 HSCAN 命令实现批量读取，尤其对元素较多的哈希表。最后还简单讲解了哈希表的辅助命令，其中比较常用的是 HLEN 命令。</p>
+<p>这一节我带着你对上述每个命令都做了详细的实验，你一定要亲自上手操作一下哦。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC08%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AHash%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8A%EF%BC%89/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC08%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AHash%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8A%EF%BC%89/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC07%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AList%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8B%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC09%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AHash%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8B%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%BB%E5%86%99%E6%93%8D%E4%BD%9C"><span class="toc-number">1.</span> <span class="toc-text">读写操作</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%92%E5%A2%9E%E6%93%8D%E4%BD%9C"><span class="toc-number">2.</span> <span class="toc-text">递增操作</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%B9%E9%87%8F%E8%AF%BB%E5%8F%96"><span class="toc-number">3.</span> <span class="toc-text">批量读取</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E5%91%BD%E4%BB%A4"><span class="toc-number">4.</span> <span class="toc-text">其他命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

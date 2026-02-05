@@ -1,0 +1,305 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="通过上一节的分析我们知道，主从建连之后会一系列握手操作，这里面最关键的一步就是从库向主库发送 PSYNC 命令，其中会携带从库当前的 Replication ID 和 Replication Offset。这里紧接上文，继续介绍从库对 PSYNC 响应的处理。 当主库返回 +CONTINUE 响应的时候，表示进行部分同步，从库会直接进入 REPL_STATE_CONNECTED 状态，主从握手的流">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="通过上一节的分析我们知道，主从建连之后会一系列握手操作，这里面最关键的一步就是从库向主库发送 PSYNC 命令，其中会携带从库当前的 Replication ID 和 Replication Offset。这里紧接上文，继续介绍从库对 PSYNC 响应的处理。 当主库返回 +CONTINUE 响应的时候，表示进行部分同步，从库会直接进入 REPL_STATE_CONNECTED 状态，主从握手的流">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.710Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.709Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.710Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>通过上一节的分析我们知道，主从建连之后会一系列握手操作，这里面最关键的一步就是<strong>从库向主库发送 PSYNC 命令，其中会携带从库当前的 Replication ID 和 Replication Offset</strong>。这里紧接上文，继续介绍从库对 PSYNC 响应的处理。</p>
+<p>当主库返回 +CONTINUE 响应的时候，表示进行部分同步，从库会直接进入 REPL_STATE_CONNECTED 状态，主从握手的流程也就结束了，后续会进入正常的主从复制流程。</p>
+<p>当主库返回 +FULLRESYNC 响应时，从库就要准备与主库进行全量同步了，下面是从库需要做的准备工作。</p>
+<ol>
+<li><p>从库首先会创建一个名为<code> temp-&#123;秒级时间戳&#125;.&#123;进程ID&#125;.rdb</code> 的临时 RDB 文件，然后将这个文件名称以及对应的文件描述符记录到 redisServer.repl_transfer_tmpfile 字段和 repl_transfer_fd 字段中。</p>
+</li>
+<li><p>监听主从连接上的可读事件，等待主库发送 RDB 数据，相应的回调为 readSyncBulkPayload() 函数。</p>
+</li>
+<li><p>最后，从库会将 redisServer.repl_state 状态切换为 REPL_STATE_TRANSFER，表示从库开始读取主库返回的 RDB 文件。</p>
+</li>
+</ol>
+<h2 id="全量同步"><a href="#全量同步" class="headerlink" title="全量同步"></a>全量同步</h2><p>处理完 +FULLRESYNC 响应之后，从库进入了 REPL_STATE_TRANSFER 状态，正如前面说的，这个状态的主库向从库传输 RDB 数据的过程。从库在收到主库传输的 RDB 数据时，会触发 <strong>readSyncBulkPayload() 回调函数</strong>进行处理，该函数的核心流程如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a51b8d544c404973acbe96a68ef115d9~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h3 id="准备工作"><a href="#准备工作" class="headerlink" title="准备工作"></a>准备工作</h3><p>下面我们结合上面的流程图，展开分析一下 readSyncBulkPayload() 回调函数的实现。</p>
+<p>首先，从库会阻塞读取主库返回的第一行数据并进行解析，该行数据可能有 <code>$&lt;count&gt;</code> 和 <code>$EOF:&lt;40 bytes&gt;</code> 两种格式。</p>
+<ul>
+<li><p><code>$&lt;count&gt;</code> 中，$ 是固定前缀，count 是后续跟着的 RDB 数据的字节数，该值会被记录到 redisServer.repl_transfer_size 字段中，在从库后续读取的时候，会使用 redisServer.repl_transfer_read 字段记录已读字节数，两者相等则表示 RDB 数据读取完毕。</p>
+</li>
+<li><p><code>$EOF:&lt;40 bytes&gt;</code> 中，“$EOF:” 这五个字符是个固定前缀，后面紧跟的 40 个字节为一个结束符，该结束符会被记录到 eofmark 这个静态局部变量中，在从库后续每次读取 RDB 数据时，都会使用 lastbytes 静态局部变量来记录读取到的最后 40 个字节，当 lastbytes 与 eofmark 相等时，则表示 RDB 数据读取完毕。</p>
+</li>
+</ul>
+<p>通过第一行返回值确认 RDB 的结束方式之后，从库会根据 repl-diskless-load 配置决定是否进行无磁盘同步，该配置项有下面三个可选值。</p>
+<ul>
+<li><p>disabled：禁用无磁盘同步的功能，从库需要将收到的 RDB 先持久化到磁盘，然后再加载到自己的内存中。</p>
+</li>
+<li><p>on-empty-db：在从库中没有任何数据的时候，才使用无磁盘同步的功能。此时，从库不会将 RDB 数据持久化到磁盘，而是直接一边读取 RDB 数据，一边将数据恢复到内存中。</p>
+</li>
+<li><p>swapdb：从库会创建一个全新的、空的 redisDb 实例，来加载 RDB 中的数据，而当前从库正在使用的 redisDb 不会发生变化。如果全量同步失败，从库直接丢弃新 redisDb 实例即可，继续使用原来的 redisDb。如果 RDB 数据加载成功，从库会用新 redisDb 替换原 redisDb，这样就可以保证无磁盘同步失败的时候，从库原有数据不丢失。</p>
+<p>  在后面还会分析到一种特殊情况，从库在加载 RDB 同步数据的过程中，是可以解析对外提供服务的，此时从库就是依赖原 redisDb 中的数据没有被覆盖这一特性。注意，因为从库需要额外维护一个 redisDb 实例，所以从库需要有充足的内存，否则会导致 RDB 加载失败。</p>
+</li>
+</ul>
+<p>我们回到 readSyncBulkPayload() 继续分析。如果没有开启无磁盘同步的功能，从库会将主库发来的 RDB 数据写入到前面创建的 RDB 临时文件中，该过程有几个点需要说明一下。</p>
+<ul>
+<li><p>这里使用的是非阻塞读取方式。这个时候从库还没有开始加载 RDB 数据，还是可以继续对外提供服务的，所以不能一直阻塞在这里读取 RDB 数据。</p>
+</li>
+<li><p>每次读取到数据时，从库会使用 redisServer.repl_transfer_lastio 字段记录当前时间戳。在 serverCron() 中会定时检查该字段，来判断 RDB 传输是否有问题，如果发现长时间阻塞，就会进行终止此次传输，重新建立。</p>
+</li>
+<li><p>在读取过程中，从库使用 redisServer.repl_transfer_last_fsync_off 字段记录已经刷盘的字节数，通过计算该字段与 redisServer.repl_transfer_read 的差值，可以计算出未刷盘的数据大小，当未刷盘数据超过 8M，从库会执行一次刷盘操作，防止大量数据一起刷盘导致磁盘性能出现尖刺。</p>
+</li>
+</ul>
+<p>如果开启无磁盘加载能力的话，就无需上述持久化流程。</p>
+<p>接下来，readSyncBulkPayload() 会是针对 swapdb 策略进行单独处理，这里会为 swapdb 策略创建一组新的 redisDb 实例，这部分逻辑位于 disklessLoadInitTempDb() 函数中，这个函数就是创建多个空的 redisDb，然后组成一个 redisDb 的数组，如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/00c1168edee348b2be1e6ae688a41842~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>如果没有使用 swapdb 策略，从库会将内存中的数据全部清空掉，这个清空逻辑在 emptyDb() 函数内，其中支持同步和异步两种清空方式，由 replica-lazy-flush 配置项指定，默认为 no，也就是同步模式。如果使用异步方式，会向 lazy free 后台线程提交一个任务，该任务会执行 lazyfreeFreeDatabase() 函数逐个释放 db-&gt;dict 和 expires 两个字典中的全部键值对。</p>
+<h3 id="加载-RDB-数据"><a href="#加载-RDB-数据" class="headerlink" title="加载 RDB 数据"></a>加载 RDB 数据</h3><p>完成上述准备工作之后，从库正式开始使用 RDB 恢复数据。这里会根据<code>是否使用了无磁盘同步模式</code>，进入不同的分支：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c3ad00609b6c48019a46691fa245c570~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p><strong>我们先来看没有使用无磁盘同步的处理分支</strong>，从库首先要结束掉后台正在执行的 RDB 持久化，因为从库已经从主库那边同步到了最新的数据并生成了临时 RDB 文件，此时的 RDB 持久化已经没有意义了。</p>
+<p>然后，从库会执行一次刷盘操作，将从主库那边同步到的 RDB 数据，全部刷到磁盘上的临时 RDB 文件中。随后，将 RDB 临时文件重命名为一个正式的 RDB 文件，文件名由 dbfilename 配置项指定。</p>
+<p>接下来，从库就会加载这个最新的 RDB 文件，这过程中会调用 rdbLoadRio() 函数恢复从库数据，加载 RDB 恢复数据的过程，其实就是 RDB 持久化的逆过程，就不再多说了。</p>
+<p>在加载结束之后，从库就可以根据配置决定是否删除磁盘上的 RDB 文件，要进行删除需要满足两方面的配置：一个是 rdb-del-sync-files 配置项为 true，另一个是从库没有开启任何持久化操作，也就是 RDB 和 AOF 两种持久化都没有开启。</p>
+<p><strong>下面我们再来看无磁盘同步的处理分支</strong>。该分支中就无需在磁盘上生成 RDB 文件刷盘了，而是将主从连接转换为阻塞模式，然后调用 rdbLoadRio() 函数从中读取 RDB 数据，恢复从库数据。虽然rdbLoadRio() 函数的核心逻辑基本是 RDB 持久化的逆过程，但是还是有些细节需要特殊说明一下。</p>
+<ul>
+<li><p>rdbLoadRio() 函数底层依赖传入的 rio 实例读取 RDB，rio 屏蔽了底层数据来源的不同。例如，无磁盘同步时，使用的是 rioConnIO 实例，也就是将主从连接作为数据源；依赖磁盘文件同步时，使用的是 rioFileIO 实例，也就是将 RDB 文件作为数据源。</p>
+</li>
+<li><p>在读取 RDB 时，从库会将 rio-&gt;update_cksum 指针指向 rdbLoadProgressCallback() 函数，其中除了计算校验和之外，还将定时向主库发送一个换行符，作为心跳消息，让主库知道从库一直在线。</p>
+</li>
+<li><p>加载 RDB 是一个耗时比较长的操作，此时虽然不一定能执行读命令（从库一般是只读模式），但是有些配置命令、查询元信息命令是可以执行的，所以在 rdbLoadProgressCallback() 函数中还会定时处理收到的客户端命令。这部分逻辑封装在 processEventsWhileBlocked() 函数中，其中连续调用 4 次 aeProcessEvents() 处理读取网络连接上发来的客户端命令，并在执行完成之后返回响应。</p>
+</li>
+</ul>
+<p>小伙伴们这里需要关注一下 redisServer.loading 和 async_loading 两个字段，loading 表示当前从库处于加载 RDB 数据的状态，async_loading 表示的是 loading 状态下的一个特例，它的含义是在 swapdb 模式下，当前从库中的数据与加载的 RDB 数据 Replication ID 一致。也就是，从库与主库是同一个数据集，只不过从库数据集版本落后于主库，所以在 loading 过程中，从库是可以用旧版本的数据继续提供服务的。</p>
+<p>在 readSyncBulkPayload() 开始加载 RDB 数据开始之前，会执行 startLoading() 函数，将 loading 以及 async_loading 这两个字段置为 1，在结束 RDB 加载之后，从库会调用 stopLoading() 函数，再将它们重置为 0。下面是 readSyncBulkPayload() 函数中相关的代码片段：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">readSyncBulkPayload</span><span class="params">(connection *conn)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="keyword">if</span> (server.repl_diskless_load == REPL_DISKLESS_LOAD_SWAPDB) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">memcmp</span>(server.replid, server.master_replid, CONFIG_RUN_ID_SIZE) == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">//设置async_loading=1需要在swapdb模式下，而且主从的Replication ID一致</span></span><br><span class="line">            asyncLoading = <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">    startLoading(server.repl_transfer_size, RDBFLAGS_REPLICATION, asyncLoading);</span><br><span class="line">    ...<span class="comment">// 下面才是前面描述的依赖磁盘或者磁盘的同步流程</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">startLoading</span><span class="params">(<span class="type">size_t</span> size, <span class="type">int</span> rdbflags, <span class="type">int</span> async)</span> &#123;</span><br><span class="line">    server.loading = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">if</span> (async == <span class="number">1</span>) server.async_loading = <span class="number">1</span>;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从库如果在 loading 过程中收到了客户端发来的命令，会根据命令特性以及 loading、async_loading 字段决定是否拒绝该命令，像 GET 等读取命令，都是可以在异步加载状态下执行的，这部分检查逻辑的代码片段位于 processCommand() 函数中，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommand</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略分析命令特性的逻辑，命令有ok-loading特新的，例如AUTH命令、CONF命令，</span></span><br><span class="line">        <span class="comment">// 在能在loading状态下执行    </span></span><br><span class="line">    <span class="keyword">if</span> (server.loading &amp;&amp; !server.async_loading &amp;&amp; is_denyloading_command) &#123;</span><br><span class="line">        rejectCommand(c, shared.loadingerr);</span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 针对异步加载的检查，像GET等读取命令，都是可以在异步加载状态下执行的</span></span><br><span class="line">    <span class="keyword">if</span> (server.async_loading &amp;&amp; is_deny_async_loading_command) &#123;</span><br><span class="line">        rejectCommand(c,shared.loadingerr);</span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="善后处理"><a href="#善后处理" class="headerlink" title="善后处理"></a>善后处理</h3><p>在加载 RDB 数据顺利完成之后，从库如果使用 swapdb 模式，就可以执行 swapMainDbWithTempDb() 函数，进行 redisDb 替换了，之后，从库就可以用新数据对外提供服务了。如果 RDB 加载过程出现异常，从库会释放掉 RDB 恢复出来的 redisDb，使用原 redisDb 继续对外提供服务。</p>
+<p>完成 RDB 加载之后，从库会初始化后续与主库交互的 client 实例，也就是 redisServer.master 这个字段，相关实现位于 replicationCreateMasterClient() 函数，其核心逻辑如下。</p>
+<ul>
+<li><p>将主从连接上可读事件的回调设置为 readQueryFromClient() 函数，之后由这个函数来处理主库发来的日志。</p>
+</li>
+<li><p>在 redisServer.master 这个 client 的 flags 字段中，添加 CLIENT_MASTER 标记。从库会根据此标记区分 client 是客户端对应的 client 实例，还是主库对应的 client 实例，这样就可以针对主库 client 进行一些特殊处理了。</p>
+</li>
+<li><p>之前处理 +FULLRESYNC 响应的时候，是将主库返回的 Replication ID 和 Replication Offset 暂存到 redisServer.master_replid 和 server.master_initial_offset 字段中。现在会将这两个值拷贝到 redisServer.master 中的 replid、reploff 字段，以及 redisServer.replid 和 master_repl_offset 字段中，供后续同步使用。</p>
+</li>
+</ul>
+<p>接下来，从库会将 repl_state 状态切换为 REPL_STATE_CONNECTED 状态，整个全量同步流程就结束了。</p>
+<p>从库还会初始化自己的主从复制缓冲区，它主要有两个作用：一个是支持 PSYNC2 的优化，因为 PSYNC2 优化中需要从库自己维护一个主从复制缓冲区，这样在它升级成主库的时候，才能为其他从库提供部分复制的能力；另一个作用支持 Redis 的多级从库模式（Sub-Slave 模式），也就是从库下面还可以再挂一个从库，如下图所示。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a4788c977ff24ec3bc133024cf109f71~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>上图中的 Slave 相对于 Sub-Slave 来说，就是 Master 相对于 Slave 的角色，所以，主从复制缓冲区的相关介绍，放到后面分析主库视角下主从复制实现的小节中进行介绍。</p>
+<p>最后，如果当前 RDB 传输使用的是结束符的方式，也就是主库第一行返回 <code>$EOF:&lt;40 bytes&gt;</code> 的格式，这里会立刻给主库发送一条 <code>REPLCONF ACK &#123;Replication Offset&#125;</code> 命令，通知其 RDB 加载结束，主库会更新从库的相关状态。其实，即使这里不发送 ACK 命令，从库也会在之后周期性执行的 replicationCron() 中，给主库发送自己的 Replication Offset。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4a8d4d295c74441590da33ceac1af250~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<h2 id="CONNECTED-状态"><a href="#CONNECTED-状态" class="headerlink" title="CONNECTED 状态"></a>CONNECTED 状态</h2><p>从库进入 CONNECTED 状态之后，就会在主从复制连接上监听主库发来的命令，在监听到可读事件的时候，回调的是 <strong>readQueryFromClient() 函数</strong>，从而实现部分同步以及正常主从复制的流程。</p>
+<p>readQueryFromClient() 函数在<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529815887708194">第 30 讲《内核解析篇：Redis 读取与请求核心》</a>里面已经详细分析过了，这里就不再重复里面的实现了，只是带小伙伴们简单浏览一下 Redis IO 多线程模式下，从库执行主从复制命令与执行普通客户端命令上的差异。</p>
+<p>下面先来回顾一下一条客户端命令执行的流程：在从库收到客户端发来命令的时候，会触发主线程调用 readQueryFromClient() 函数处理可读事件，其中会先给对应 client 添加 CLIENT_PENDING_READ 标记表示延迟读取，并添加到 redisServer.clients_pending_read 队列中。主线程后续会在 beforeSleep() 函数中，将 clients_pending_read 队列中的 client 分配给 IO 线程，由 IO 线程从 client 中读取并解析命令。IO 线程读取完命令之后，会将命令缓存在 client-&gt;argv 数组中，同时会在 client 中设置 CLIENT_PENDING_COMMAND 标记，来表示有待执行的命令。最后，主线程在等待全部 IO 线程解析完命令之后，一并执行所有命令。</p>
+<p>在主从复制场景中，从库处理主库发来的命令基本与上述处理客户端命令的流程类似，但是<code>有些许差异</code>需要特别说明。</p>
+<h3 id="不使用-IO-多线程"><a href="#不使用-IO-多线程" class="headerlink" title="不使用 IO 多线程"></a>不使用 IO 多线程</h3><p>从库在处理主库命令的时候，并不会进行 IO 线程处理，而是全部由主线程读取、解析并执行。判断是否延迟读取的逻辑位于 postponeClientRead() 函数中，如下所示，之所以不使用延迟加载是为了减少主从复制的延迟。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">readQueryFromClient</span><span class="params">(connection *conn)</span> &#123;</span><br><span class="line">    <span class="comment">// 是否由IO线程进行读取和解析</span></span><br><span class="line">    <span class="keyword">if</span> (postponeClientRead(c)) <span class="keyword">return</span>; </span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">postponeClientRead</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (server.io_threads_active &amp;&amp; <span class="comment">// 开启多线程模式</span></span><br><span class="line">        server.io_threads_do_reads &amp;&amp; <span class="comment">// I/O线程可以执行读取操作</span></span><br><span class="line">        !ProcessingEventsWhileBlocked &amp;&amp; <span class="comment">// 处于加载RDB或AOF的流程中</span></span><br><span class="line">        <span class="comment">// 检查client的状态标记位，如果是主库对应的client，也就是redisServer.master这</span></span><br><span class="line">        <span class="comment">// 个client实例，其flags字段中一定包含CLIENT_MASTER标记</span></span><br><span class="line">        !(c-&gt;flags &amp; (CLIENT_MASTER|CLIENT_SLAVE|CLIENT_BLOCKED)) &amp;&amp;</span><br><span class="line">        <span class="comment">// 检查io_threads_op全局变量</span></span><br><span class="line">        io_threads_op == IO_THREADS_OP_IDLE)&#123;</span><br><span class="line">         c-&gt;flags |= CLIENT_PENDING_READ;</span><br><span class="line">        <span class="comment">// 将client追加到clients_pending_read列表中，等待I/O线程去处理</span></span><br><span class="line">        listAddNodeHead(server.clients_pending_read,c);</span><br><span class="line">        c-&gt;pending_read_list_node = listFirst(server.clients_pending_read);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;<span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>; <span class="comment">// 由主线程立即处理</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h3 id="Sub-Slave-模式"><a href="#Sub-Slave-模式" class="headerlink" title="Sub-Slave 模式"></a>Sub-Slave 模式</h3><p>前面提到 Redis 主从复制是可以组成链状结构的，如下图所示。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f6b3e117624c439281b13aee762e816f~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>从库在复制主库的同时，还需要将复制来的命令传播到 Sub-Slave 从库，所以从库执行完命令之后，不会立刻释放 client-&gt;querybuf 缓冲区的空间，而是将其中已经执行的命令，拷贝到从库的主从复制缓冲区，后续会发送给 Sub-Slave。</p>
+<p>这部分逻辑位于 <strong>commandProcessed() 函数</strong>中，其中涉及到 redisServer.master 这个 client 中的三个关键字段。</p>
+<ul>
+<li>第一个是 read_reploff 字段，它用来记录当前从库从主库那里读取了多少个字节的命令，这些命令从库已经执行了一部分，有一部分还未执行。</li>
+<li>第二个是 reploff 字段，它用来记录了从库当前已经执行了多少主库发来的命令，单位也是字节，也就是从库的 Replication Offset。</li>
+<li>最后一个字段是 repl_applied 字段，它用来记录当前 querybuf 中有多少命令已经被执行，querybuf 缓冲区中 repl_applied 之前的数据，都可以清除掉了。</li>
+</ul>
+<p>下面这张示意图，可以清晰地描述这三个字段的关系：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1f425139b7c340f5b8ba43c92f724144~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>下面是 commandProcessed() 函数的核心逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommandAndResetClient</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他准备逻辑</span></span><br><span class="line">    <span class="comment">// 正常执行命令</span></span><br><span class="line">    <span class="keyword">if</span> (processCommand(c) == C_OK) &#123; </span><br><span class="line">        <span class="comment">// commandProcessed()函数会在命令正常执行之后，进行一些善后工作</span></span><br><span class="line">        commandProcessed(c);</span><br><span class="line">    &#125;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> <span class="title function_">commandProcessed</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> prev_offset = c-&gt;reploff;</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_MASTER &amp;&amp; !(c-&gt;flags &amp; CLIENT_MULTI)) &#123;</span><br><span class="line">        <span class="comment">// querybuf缓冲区中qb_pos这个位置之前的命令都是已经在processCommand()中</span></span><br><span class="line">        <span class="comment">// 执行的命令</span></span><br><span class="line">        c-&gt;reploff = c-&gt;read_reploff - sdslen(c-&gt;querybuf) + c-&gt;qb_pos;</span><br><span class="line">    &#125;</span><br><span class="line">    ...<span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_MASTER) &#123;</span><br><span class="line">        <span class="comment">// 计算此次要发送给SubSlave的命令占了多少字节</span></span><br><span class="line">        <span class="type">long</span> <span class="type">long</span> pplied = c-&gt;reploff - prev_offset; </span><br><span class="line">        <span class="keyword">if</span> (applied) &#123; </span><br><span class="line">            <span class="comment">// 如果执行了命令，就会通过replicationFeedSlavesFromMasterStream()将</span></span><br><span class="line">            <span class="comment">// 这些命令写入到复制缓冲区，并发给下游的Sub-Slave</span></span><br><span class="line">            replicationFeedStreamFromMasterStream(c-&gt;querybuf+c-&gt;repl_applied,</span><br><span class="line">                applied);</span><br><span class="line">            c-&gt;repl_applied += applied;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>replicationFeedStreamFromMasterStream() 其中做了两件事，一个是将此次执行的主库命令写入到主从复制缓冲区，另一个是开始监听 Sub-Slave 对应的 client，后续发生可写事件的时候，当前从库就会把主从复制缓冲区中对应的命令发到 Sub-Slave，实现 Sub-Slave 这种多级从库的复制效果。这两个逻辑与主库向从库发送命令的逻辑一样，在后续介绍主从复制主库视角下的逻辑时，再展开详细分析。</p>
+<p>下面通过一张图简单总结各个缓冲区的数据流转过程，如下所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3679ed76b80f4965bf2f0f234f00322e~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h3 id="命令执行限制"><a href="#命令执行限制" class="headerlink" title="命令执行限制"></a>命令执行限制</h3><p>在前文介绍全量同步的时候提到过，从库加载 RDB 过程会导致部分命令无法正常执行，我们也介绍了 redisServer.loading 以及 async_loading 的作用。除此之外，从库执行命令时还有其他的一些限制，这里我们补充说明一下。</p>
+<p>首先，从库在与主库断开连接之后，从库中的数据可能已经与主库不一致了，从库会根据 replica-serve-stale-data 配置决定是否能继续执行客户端的命令，相关的代码位于 processCommand() 函数中，判断如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommand</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他代码</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (server.masterhost <span class="comment">// 当前Redis实例是从库</span></span><br><span class="line">        &amp;&amp; server.repl_state != REPL_STATE_CONNECTED  <span class="comment">// 主从复制连接已经断开</span></span><br><span class="line">        &amp;&amp; server.repl_serve_stale_data == <span class="number">0</span> <span class="comment">// 从库是否支持提供旧数据</span></span><br><span class="line">        &amp;&amp; is_denystale_command) <span class="comment">// 命令是否支持在旧数据集上执行</span></span><br><span class="line">    &#123;</span><br><span class="line">        rejectCommand(c, shared.masterdownerr);</span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">    ... <span class="comment">// 下面才是对loading以及async_loading的检查</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>其次，在绝大多数场景中，为了保证主从一致性，从库只能执行主库发来的数据写命令，从客户端的角度来看，从库就是 Read-Only 的。只有极特殊场景下，我们才希望能够向从库单独写入数据，此时，可以通过 replica-read-only 配置来修改从库的 Read-Only 特性。控制能不能直接向从库写入数据的逻辑在 processCommand() 函数中，相关片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommand</span><span class="params">(client *c)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他代码</span></span><br><span class="line">    <span class="keyword">if</span> (server.masterhost  <span class="comment">// 当前Redis实例是从库</span></span><br><span class="line">        &amp;&amp; server.repl_slave_ro  <span class="comment">// 检查replica-read-only配置</span></span><br><span class="line">        &amp;&amp; !obey_client    <span class="comment">// 当前客户端为连接主库的client或者是回放AOF日志的client</span></span><br><span class="line">        &amp;&amp; is_write_command <span class="comment">// 命令是否会修改数据</span></span><br><span class="line">    )&#123;</span><br><span class="line">        rejectCommand(c, shared.roslaveerr);</span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们依旧站在从库的角度来分析 Redis 主从同步的内容。首先，我们介绍了主从握手完成之后，从库进行一次全量同步的核心流程；然后介绍了进入 CONNECTED 正常主从复制状态之后，从库如何同步主库的命令，同时也介绍了从库执行普通客户端命令与执行主库命令的关键区别。</p>
+<p>从下一节开始，我们将站在主库的视角，分析 Redis 主从复制的内容，其中还会涉及到 Redis 6.0 提出的<code>无磁盘同步</code>、Redis 7.0 提出的<code>共享缓冲区</code>等一系列优化点的介绍。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC48%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC46%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOFRewrite%E6%9C%BA%E5%88%B6%E5%89%96%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%A8%E9%87%8F%E5%90%8C%E6%AD%A5"><span class="toc-number">1.</span> <span class="toc-text">全量同步</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C"><span class="toc-number">1.1.</span> <span class="toc-text">准备工作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A0%E8%BD%BD-RDB-%E6%95%B0%E6%8D%AE"><span class="toc-number">1.2.</span> <span class="toc-text">加载 RDB 数据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%96%84%E5%90%8E%E5%A4%84%E7%90%86"><span class="toc-number">1.3.</span> <span class="toc-text">善后处理</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#CONNECTED-%E7%8A%B6%E6%80%81"><span class="toc-number">2.</span> <span class="toc-text">CONNECTED 状态</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%8D%E4%BD%BF%E7%94%A8-IO-%E5%A4%9A%E7%BA%BF%E7%A8%8B"><span class="toc-number">2.1.</span> <span class="toc-text">不使用 IO 多线程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Sub-Slave-%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.2.</span> <span class="toc-text">Sub-Slave 模式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%BD%E4%BB%A4%E6%89%A7%E8%A1%8C%E9%99%90%E5%88%B6"><span class="toc-number">2.3.</span> <span class="toc-text">命令执行限制</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

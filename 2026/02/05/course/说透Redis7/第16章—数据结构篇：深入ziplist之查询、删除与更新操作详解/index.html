@@ -1,0 +1,287 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="在前面两节中，我们详细介绍了 ziplist 结构以及 ziplist 写入新元素的核心逻辑。除了插入新元素的操作之外，我们还需要学习一下 ziplist 查询、删除以及更新元素的操作，这样整个 ziplist 结构才算掌握完整。 查询操作首先来看 ziplist 提供的查询函数，如下图所示，我们可以在 ziplist.h 文件中看到红色方框圈出来的这些查询函数：  这里先简单列一下这些函数的功能">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC16%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E6%9F%A5%E8%AF%A2%E3%80%81%E5%88%A0%E9%99%A4%E4%B8%8E%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C%E8%AF%A6%E8%A7%A3/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="在前面两节中，我们详细介绍了 ziplist 结构以及 ziplist 写入新元素的核心逻辑。除了插入新元素的操作之外，我们还需要学习一下 ziplist 查询、删除以及更新元素的操作，这样整个 ziplist 结构才算掌握完整。 查询操作首先来看 ziplist 提供的查询函数，如下图所示，我们可以在 ziplist.h 文件中看到红色方框圈出来的这些查询函数：  这里先简单列一下这些函数的功能">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.703Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.703Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC16%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E6%9F%A5%E8%AF%A2%E3%80%81%E5%88%A0%E9%99%A4%E4%B8%8E%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C%E8%AF%A6%E8%A7%A3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.703Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.703Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>在前面两节中，我们详细介绍了 ziplist 结构以及 ziplist 写入新元素的核心逻辑。除了<code>插入</code>新元素的操作之外，我们还需要学习一下 ziplist <code>查询</code>、<code>删除</code>以及<code>更新</code>元素的操作，这样整个 ziplist 结构才算掌握完整。</p>
+<h2 id="查询操作"><a href="#查询操作" class="headerlink" title="查询操作"></a>查询操作</h2><p>首先来看 ziplist 提供的查询函数，如下图所示，我们可以在 ziplist.h 文件中看到红色方框圈出来的这些查询函数：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2dc969f00454482d9566bee4fc86deee~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里先简单列一下这些函数的功能，其实通过函数的名字，也猜个差不多。</p>
+<ul>
+<li>ziplistIndex() 函数的功能就是查找 ziplist 中指定 index 索引值上的 entry。要是传入的 index 值是个负数，会从 ziplist 的尾部向前查找。相信你也能猜到，<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147527279311224832">《实战应用篇：List 命令详解与实战（上）》</a>一文中介绍的 LINDEX 命令，就是依赖 ziplistIndex() 函数实现的。</li>
+</ul>
+<!---->
+
+<ul>
+<li>ziplistNext() 和 ziplistPrev() 函数，就是返回 ziplist 中指定 entry 节点的前一个和后一个 entry。</li>
+</ul>
+<p>其他的这些方法就不再一个个说了，你可以直接参考下面这个表：</p>
+<table>
+<thead>
+<tr>
+<th><strong>函数</strong></th>
+<th><strong>功能</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ziplistIndex()</td>
+<td>找 ziplist 中指定 index 索引值上的 entry。要是传入的 index 值是个负数，会从 ziplist 的尾部向前查找</td>
+</tr>
+<tr>
+<td>ziplistNext()&#x2F;ziplistPrev()</td>
+<td>返回 ziplist 中指定 entry 节点的前一个&#x2F;后一个 entry</td>
+</tr>
+<tr>
+<td>ziplistFind()</td>
+<td>在 ziplist 中查找并返回包含了指定 data 值的 entry</td>
+</tr>
+<tr>
+<td>ziplistGet()</td>
+<td>获取指定 entry 节点中保存的 data 值</td>
+</tr>
+<tr>
+<td>ziplistCompare()</td>
+<td>比较指定 entry 节点中的 data 值是否等于指定值</td>
+</tr>
+<tr>
+<td>ziplistBlobLen()</td>
+<td>获取 ziplist 占用的总字节数</td>
+</tr>
+<tr>
+<td>ziplistLen()</td>
+<td>获取 ziplist 中的 entry 节点个数</td>
+</tr>
+</tbody></table>
+<p>这些<code>查询操作的核心逻辑</code>，就是<strong>按照 ziplist 的结构，逐个遍历 entry</strong>。在遍历的时候，就需要解析 entry 里面的 prevlen、len 以及 data 信息，这样才能知道下一个 entry 的起始位置。其实，在前面介绍插入数据的时候，也需要解析 entry 的函数，但是一直没有展开详细说。这就是看源码很容易迷失的地方，七拐八拐的，慢慢就偏离了我们的主线剧情。</p>
+<p>这里我们就展开说说解析 entry 的函数。在 ziplist.c 里面，能看到 <code>zipEntrySafe()</code> 和 <code>zipEntry()</code> 两个函数，如下图所示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/c9ce56220069458ba3a30f5c334fef27~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这两个函数都是用来解析 entry 的，区别在于 Safe 的这个版本，会做很多额外的检查，保证解析 entry 的时候不会跑到 ziplist 内存区域之外；而 zipEntry() 这个版本，就直接按照 entry 格式硬解。</p>
+<p>在开始说这两个函数的实现之前，我们先要来看一下<strong>存放解析结果的容器，就是这个 zlentry 结构体</strong>，里面存的是 prevlen 的长度和具体值、len 的长度和具体值，这个 headersize 就是 prevlen 和 len 两部分占的字节数，最后的这个 p 指针指向的是 entry 节点的首地址。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">zlentry</span> &#123;</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> prevrawlensize; <span class="comment">// entry中prevlen部分所占的字节数</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> prevrawlen;     <span class="comment">// prevlen的值</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> lensize;        <span class="comment">// entry中len部分所占用的字节数</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> len;            <span class="comment">// len的值</span></span><br><span class="line">    <span class="comment">// 记录当前entry中prevrawlen、len两部分的长度，</span></span><br><span class="line">    <span class="comment">// 实际就是lensize + prevrawlensize</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> headersize;</span><br><span class="line">    <span class="comment">// entry的编码格式，该值是根据len部分计算出来的，可选值有：</span></span><br><span class="line">    <span class="comment">// ZIP_STR_MASK和ZIP_INT_MASK两个，分别表示data部分是字符串和整数 </span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> encoding;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> *p;            <span class="comment">// 指向entry的首地址 </span></span><br><span class="line">&#125; zlentry;</span><br></pre></td></tr></table></figure>
+
+
+<p>好了，接下来我们就来看一下 <strong>zipEntry() 的逻辑</strong>，如下代码所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title function_">zipEntry</span><span class="params">(<span class="type">unsigned</span> <span class="type">char</span> *p, zlentry *e)</span> &#123;</span><br><span class="line">    <span class="comment">// 从 p 指针的位置开始，解析 prevlen 值，解析好的 prevlen 长度和 prevlen 值，</span></span><br><span class="line">    <span class="comment">// 直接放到 e 这个 zlentry 实例里面</span></span><br><span class="line">    ZIP_DECODE_PREVLEN(p, e-&gt;prevrawlensize, e-&gt;prevrawlen);</span><br><span class="line">    <span class="comment">// 解析data的类型，字符串 or 整型</span></span><br><span class="line">    ZIP_ENTRY_ENCODING(p + e-&gt;prevrawlensize, e-&gt;encoding);</span><br><span class="line">    <span class="comment">// 解析len占的字节数以及len值</span></span><br><span class="line">    ZIP_DECODE_LENGTH(p + e-&gt;prevrawlensize, e-&gt;encoding, e-&gt;lensize, e-&gt;len);</span><br><span class="line">    assert(e-&gt;lensize != <span class="number">0</span>); </span><br><span class="line">    <span class="comment">// 计算headersize</span></span><br><span class="line">    e-&gt;headersize = e-&gt;prevrawlensize + e-&gt;lensize;</span><br><span class="line">    <span class="comment">// 指向entry首地址</span></span><br><span class="line">    e-&gt;p = p;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>整体逻辑可以梳理为如下四步。</p>
+<ul>
+<li><p>ZIP_DECODE_PREVLEN 这个宏，就是从 p 指针的位置开始解析 prevlen 值，解析好的 prevlen 长度和 prevlen 值，直接放到 e 这个 zlentry 实例里面。</p>
+</li>
+<li><p>ZIP_ENTRY_ENCODING 这个宏，是从 len 里面解析出 data 编码类型。前面介绍 len 编码的时候也说过，通过 len 的前两位，我们就可以区分出 data 是字符串还是整型了，你看这个宏，也是这么实现的。</p>
+</li>
+<li><p>ZIP_DECODE_LENGTH 这个宏，就是解析 len 占用的字节数以及 len 的值，解析的结果也是填充到这个 zlentry 实例的对应字段里面。</p>
+</li>
+<li><p>最后，算一下 headersize，记一下 entry 的指针，这个 zlentry 实例就填充完了。</p>
+</li>
+</ul>
+<p>就这样，调用 zipEntry() 函数的地方，就拿到了一个填充好的 zlentry 实例了。这就和“我们 Java 里面传一个空对象进来，然后不断调用 setter 方法填充空对象的字段，调用结束了，也就拿到了一个填充好的对象”是一个道理。</p>
+<p>zipEntrySafe() 这个函数就不再展开说了，基本原理是一样的，就是<code>多了很多额外检查</code>而已。</p>
+<h2 id="删除操作"><a href="#删除操作" class="headerlink" title="删除操作"></a>删除操作</h2><p>关于 ziplist 的删除操作，有两个函数需要讲一下（如下截图）：一个是 <code>ziplistDelete() 函数</code>，它是删除 p 指针指定的 entry；另一个是 <code>ziplistDeleteRange() 函数</code>，它是个范围删除，从指定的 index 开始往后删除，总共删除 num 个 entry。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a47d2114f9984b03865d54f8275ab33a~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>无论是单个 entry 节点的删除还是批量删除，**底层都依赖于 <code>__ziplistDelete() 函数</code>**。我们用 CLoin 这个调用关系视图就能看到这个函数的调用关系，如下：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/260714d9f00c4adca48c711d0421300c~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>我们接下来就看看这个 __ziplistDelete() 函数的实现。如下所示，我们看到 __ziplistDelete() 函数会从 p 这个位置开始解析 entry，解析的结果会通过 zipEntry() 函数填充到 first 这个 zlentry 实例里面。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">char</span> *__ziplistDelete(<span class="type">unsigned</span> <span class="type">char</span> *zl, <span class="type">unsigned</span> <span class="type">char</span> *p, <span class="type">unsigned</span> <span class="type">int</span> num) &#123;</span><br><span class="line">    ... <span class="comment">// 省略变量定义的相关的代码</span></span><br><span class="line">    zipEntry(p, &amp;first); <span class="comment">// 解析p指向的entry</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; p[<span class="number">0</span>] != ZIP_END &amp;&amp; i &lt; num; i++) &#123; <span class="comment">// 向后循环num个entry</span></span><br><span class="line">       p += zipRawEntryLengthSafe(zl, zlbytes, p);</span><br><span class="line">       deleted++;</span><br><span class="line">    &#125;</span><br><span class="line">    ...<span class="comment">// 省略后面的逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面这个 for 循环就是往后解析 num 个 entry，这些 entry 都是要删除的。比如说，从 entry3 开始，往后删 8 个 entry，大概就是下图的结构，p 指针会不断后移，first 里面的 p 指针一直指向第一个要删除的 entry。这里的 totlen 就是这些要删除的 entry 占的字节数。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/444d77f4b695413eb456541304654ba7~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>确认了删除的起止地址之后，下一步就是要把 p 之后的 entry 前移，覆盖掉这些要删除的 entry，关键代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">totlen = p-first.p; <span class="comment">// 计算要删除的字节数</span></span><br><span class="line"><span class="keyword">if</span> (totlen &gt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="type">uint32_t</span> set_tail;</span><br><span class="line">    <span class="keyword">if</span> (p[<span class="number">0</span>] != ZIP_END) &#123;</span><br><span class="line">        <span class="comment">// 计算prevlen是否需要扩容，扩容多少字节通过zipPrevLenByteDiff计算出来</span></span><br><span class="line">        nextdiff = zipPrevLenByteDiff(p,first.prevrawlen);</span><br><span class="line">        p -= nextdiff; <span class="comment">// 如果需要扩容，前移p指针</span></span><br><span class="line">        assert(p &gt;= first.p &amp;&amp; p&lt;zl+zlbytes<span class="number">-1</span>);</span><br><span class="line">        zipStorePrevEntryLength(p,first.prevrawlen);</span><br><span class="line">        ... <span class="comment">// 省略zltail变更涉及到的逻辑</span></span><br><span class="line">        <span class="type">size_t</span> bytes_to_move = zlbytes-(p-zl)<span class="number">-1</span>;</span><br><span class="line">        memmove(first.p,p,bytes_to_move); <span class="comment">// 前移内存，删除数据</span></span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们继续沿着上面示例的思路分析这段代码：在移动之前，我们先要看看 entry 11 的 prevlen 是不是要扩容，看这里，熟悉的 nextdiff。如果需要扩容的话，nextdiff 的值得是 4 ，这里的 p 就会前移 4 个字节，反正前面的这块粉红色区域都是要删除的，p 可以放心大胆地前移，如下图灰色部分所示。</p>
+<p>接下来就是真正的 memove 前移 entry 11 之后的数据了，如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5566eb41ab524c9ab6661bb8c8e5efce~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>完成前移的操作之后，就要走 realloc 缩小 ziplist 这块连续空间，然后还要根据删除的字节数、prevlen 扩容的情况，重新计算 ziplist 头里面的值了，这里就不再一个个展开说了。</p>
+<p>正如前文所示，因为 entry 11 的 prevlen 可能扩容，所以此时是可能出现连锁更新的，所以这里会触发 <code>__ziplistCascadeUpdate()</code> 函数处理 entry 11 之后的连锁更新问题。</p>
+<h2 id="更新操作"><a href="#更新操作" class="headerlink" title="更新操作"></a>更新操作</h2><p>ziplist 里面的插入、查询以及删除操作都说介绍完之后，最后再来看看 ziplist 的更新操作。</p>
+<p>这个 <code>ziplistReplace() 函数</code>的功能，就是把 p 指向的 entry 的值，改成 s 这个字符串。你回想一下，前面<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147527279311224832">《实战应用篇：List 命令详解与实战（上）》</a>一文中介绍过一个 LSET 命令，它就是依赖这个 replace 方法实现的。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5d7f08a33f124cb69193c2343ad290f6~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>我们接着来看 ziplistReplace() 函数的关键代码：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"> zipEntry(p, &amp;entry); <span class="comment">// 解析p执行的entry，也就是更新前使用的字节数</span></span><br><span class="line"><span class="keyword">if</span> (zipTryEncoding(s,slen,&amp;value,&amp;encoding)) &#123; <span class="comment">// 下面计算更新后需要的字节数</span></span><br><span class="line">    reqlen = zipIntSize(encoding); </span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    reqlen = slen; </span><br><span class="line">&#125;</span><br><span class="line">reqlen += zipStoreEntryEncoding(<span class="literal">NULL</span>,encoding,slen);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (reqlen == entry.lensize + entry.len) &#123; <span class="comment">// 更新前后所占字节数一样</span></span><br><span class="line">    p += entry.prevrawlensize;</span><br><span class="line">    p += zipStoreEntryEncoding(p,encoding,slen);</span><br><span class="line">    <span class="keyword">if</span> (ZIP_IS_STR(encoding)) &#123;</span><br><span class="line">        <span class="built_in">memcpy</span>(p,s,slen);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        zipSaveInteger(p,value,encoding);</span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123; <span class="comment">// 更新前后所占字节数不一样。</span></span><br><span class="line">    zl = ziplistDelete(zl,&amp;p);</span><br><span class="line">    zl = ziplistInsert(zl,p,s,slen);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>这里先通过 zipEntry() 函数解析了一下 p 指向的这个 entry，这样我们就知道更新前这个 entry 占了多少个字节。然后，我们算一下，更新之后 entry 需要占多少字节。要是更新前后占的字节数一样的话，直接替换就行了，就是这个 if 分支；要是占的字节数不一样，那就先把这个 entry 删掉，然后再用 insert 加回来，是不是直觉上，走到这个分支的时候，性能就会变差了呢？所以我们在用 LSET 这类命令的时候，尽可能保证原值和更新值的长度不变。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>ziplist 作为在 Redis 7 版本之前重要的底层数据结构之一，不仅是 Redis List 底层实现依赖了它，后面要介绍的哈希结构、有序列表，也都会用到它。</p>
+<p>通过这三节课程的介绍，我们就将 ziplist 这个结构讲解完了。这三节我们重点介绍了 ziplist 结构本身、分析了 entry 的变长编码方式、ziplist 的插入、查询、删除以及更新操作，还展开说了一些关联的 C 语言知识点。</p>
+<p>在下一节，我们将介绍 Redis 7 中用来替代 ziplist 结构的 <code>listpack</code>，<strong>listpack 相较于 ziplist 来说说，结构以及操作都简单很多</strong>，小伙伴们可以在阅读下一节的时候，将两者对比一下，就可以体会到 listpack 的优势所在。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC16%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E6%9F%A5%E8%AF%A2%E3%80%81%E5%88%A0%E9%99%A4%E4%B8%8E%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C%E8%AF%A6%E8%A7%A3/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC16%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E6%9F%A5%E8%AF%A2%E3%80%81%E5%88%A0%E9%99%A4%E4%B8%8E%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C%E8%AF%A6%E8%A7%A3/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC14%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84%E5%88%86%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC15%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E5%86%99%E5%85%A5%E6%95%B0%E6%8D%AE/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9F%A5%E8%AF%A2%E6%93%8D%E4%BD%9C"><span class="toc-number">1.</span> <span class="toc-text">查询操作</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%A0%E9%99%A4%E6%93%8D%E4%BD%9C"><span class="toc-number">2.</span> <span class="toc-text">删除操作</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">更新操作</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

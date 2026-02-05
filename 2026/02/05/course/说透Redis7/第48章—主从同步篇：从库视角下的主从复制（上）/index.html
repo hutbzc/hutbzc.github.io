@@ -1,0 +1,266 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="介绍完主从复制的核心原理之后，从这节开始，我们将介绍 Redis 主从复制的核心实现。在上一节中提到，Redis 主从结构最开始，是由从库向主库发起建连请求的，所以这里就先以从库视角来看看主从复制的整个流程。 从库建连设置主库地址明确了从库是主从复制的主动发起方之后，我们再来看看从库是如何确认自己要连接哪个主库的，下面有两种设置主库的方式。  一种是从库在配置文件（或是启动参数）中添加了 repl">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC48%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="介绍完主从复制的核心原理之后，从这节开始，我们将介绍 Redis 主从复制的核心实现。在上一节中提到，Redis 主从结构最开始，是由从库向主库发起建连请求的，所以这里就先以从库视角来看看主从复制的整个流程。 从库建连设置主库地址明确了从库是主从复制的主动发起方之后，我们再来看看从库是如何确认自己要连接哪个主库的，下面有两种设置主库的方式。  一种是从库在配置文件（或是启动参数）中添加了 repl">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC48%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.709Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.709Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>介绍完主从复制的核心原理之后，从这节开始，我们将介绍 Redis 主从复制的核心实现。在上一节中提到，Redis 主从结构最开始，是由从库向主库发起建连请求的，所以这里就先以从库视角来看看主从复制的整个流程。</p>
+<h2 id="从库建连"><a href="#从库建连" class="headerlink" title="从库建连"></a>从库建连</h2><h3 id="设置主库地址"><a href="#设置主库地址" class="headerlink" title="设置主库地址"></a>设置主库地址</h3><p>明确了从库是主从复制的主动发起方之后，我们再来看看从库是如何确认自己要连接哪个主库的，下面有两种设置主库的方式。</p>
+<ul>
+<li><p>一种是从库在配置文件（或是启动参数）中添加了 replicaof 配置或者 slaveof 配置，replicaof 出现在 Redis 5.0 版本中，用于替换 slaveof 配置，slaveof 目前已经被标记为废弃 。在 Redis 从库启动过程中，loadServerConfigFromString() 函数中会解析 redis.conf 文件（以及启动参数）中的 replicaof（或 slaveof）配置，将主库的网络地址记录到 redisServer.masterhost 和 redisServer.masterport 中。</p>
+</li>
+<li><p>另一种是在从库启动之后，通过客户端向 Redis 服务发送 replicaof（或者 slaveof） 命令。当 Redis 从库接收到 replicaof （或者 slaveof）命令时，会在 replicaofCommand() 函数中解析命令中携带的主库地址，然后记录 redisServer.masterhost 和 redisServer.masterport 字段中。</p>
+</li>
+</ul>
+<h3 id="建连触发时机"><a href="#建连触发时机" class="headerlink" title="建连触发时机"></a>建连触发时机</h3><p>设置好主库的地址之后，Redis 从库会开始尝试连接主库，该逻辑位于 <strong>connectWithMaster() 函数</strong>中，下图展示了其调用栈：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/df222b82ae9746d38e38ab3c53bb9948~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>我们从上图中可以看出一些<code>触发从库发起连接的时机</code>。</p>
+<ul>
+<li><p>从库在收到 replicaof 命令的时候，对应上图中的 replicaofCommand() 函数，会触发从库发起连接。</p>
+</li>
+<li><p>在主从连接断开的时候，对应上图中的 replicationHandleMasterDisconnection() 函数，会触发从库发起连接。</p>
+</li>
+<li><p>在主库地址更新的时候，对应上图中的 nodeUpdateAddressIfNeeded() 函数，会触发从库发起连接。</p>
+</li>
+<li><p>在主库宕机发生故障转移的时候，对应上图中的 updateFailoverStatus() 函数，也会触发从库发起连接。</p>
+</li>
+<li><p>上图中的 replicationCron() 函数是在 serverCron() 函数中被调用的，也就是说，replicationCron() 函数会周期性地执行，它里面会检查主从复制的各个状态，并根据这些状态执行与主库断开、重连等操作。比如说，如果现在是通过 replicaof 配置指定了主库地址，从库在启动的时候，loadServerConfigFromString() 函数中会将 redisServer.repl_state 字段设置为 REPL_STATE_CONNECT 状态，表示等待从库对主库发起建连请求，然后由 replicationCron() 定时触发连接主库的操作，相关片段如下：</p>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">replicationCron</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (server.repl_state == REPL_STATE_CONNECT) &#123; <span class="comment">// 检查repl_state状态</span></span><br><span class="line"></span><br><span class="line">        connectWithMaster(); <span class="comment">// 连接主库</span></span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="建连过程"><a href="#建连过程" class="headerlink" title="建连过程"></a>建连过程</h3><p>了解了从库发起建连请求的时机之后，接下来就可以深入分析一下 connectWithMaster() 函数，它总共做了下面三件事。</p>
+<ol>
+<li><p>第一件事就是创建一个 connection 实例，用来表示从库与主库之间用于复制数据的连接，该 connection 实例会记录到 redisServer.repl_transfer_s 字段中。</p>
+</li>
+<li><p>第二件事是建立网络连接。这里会调用对应 ConnectionType 的 connect() 函数建立网络连接，例如，CT_Socket 的实现是先调用 socket() 函数创建一个非阻塞的 TCP 连接，然后调用 connect() 函数发起建连请求，将 connection 的状态更新为 CONN_STATE_CONNECTING，表示正在建连。同时，通过 aeCreateFileEvent() 函数添加该连接的可写事件监听，一旦建连成功，就会调用相应的回调。</p>
+</li>
+<li><p>第三件事是更新 redisServer 中主从复制相关的字段，比如，下面展示的 repl_transfer_lastio 字段是记录了从库最后一次收到主库响应的时间戳，主要用于判断读请求以及建连请求是否超时；repl_state 字段记录了主从复制的状态，这里会把它设置为 REPL_STATE_CONNECTING，表示从库正在与主库建连。</p>
+</li>
+</ol>
+<p>下面是 connectWithMaster() 函数的关键代码以及解析：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">connectWithMaster</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 1、初始化server.repl_transfer_s这个连接实例</span></span><br><span class="line"></span><br><span class="line">    server.repl_transfer_s = server.tls_replication ? connCreateTLS() : </span><br><span class="line"></span><br><span class="line">            connCreateSocket();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2、建立网络连接，并注册可写事件的监听，可写事件触发后的回调为syncWithMaster()函数</span></span><br><span class="line"></span><br><span class="line">     <span class="keyword">if</span> (connConnect(server.repl_transfer_s, server.masterhost, </span><br><span class="line"></span><br><span class="line">       server.masterport, server.bind_source_addr, syncWithMaster) == C_ERR) &#123;</span><br><span class="line"></span><br><span class="line">        ... <span class="comment">// 省略其他异常处理逻辑</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> C_ERR; </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 3、更新server.repl_state记录主从复制状态，更新repl_transfer_lastio时间戳</span></span><br><span class="line"></span><br><span class="line">    server.repl_transfer_lastio = server.unixtime;</span><br><span class="line"></span><br><span class="line">    server.repl_state = REPL_STATE_CONNECTING;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> C_OK;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="主从握手"><a href="#主从握手" class="headerlink" title="主从握手"></a>主从握手</h2><p>正常情况下，在从库发起建连请求之后，主库会进行响应，并完成 TCP 连接的建连。在从库监听到主从之间的网络连接建立成功之后，会触发该连接上的可写事件，也就是<strong>回调 syncWithMaster() 函数，这个函数中，从库与主库之间会进行一系列握手流程</strong>，核心逻辑如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/20116bd67e73490f99054e2b3777f02d~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>下面我们展开一步步来分析 syncWithMaster() 函数的核心逻辑，其中同学们可以先关注上图最左边的redisServer.repl_state 字段，该字段表示了主从复制的状态，从库在不同状态下执行不同的逻辑，组合起来就是从库这一侧在主从复制中的状态机。</p>
+<h3 id="CONNECTING-状态"><a href="#CONNECTING-状态" class="headerlink" title="CONNECTING 状态"></a>CONNECTING 状态</h3><p>建连之后，从库处于 REPL_STATE_CONNECTING 状态，此时会注册对连接可读事件的监听（回调依旧是 syncWithMaster() 函数）并向主库发送 PING 命令。向主库发送命令的逻辑封装在 sendCommand() 函数中，后续发送其他命令也是由 sendCommand() 函数完成的，调用栈如下所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/939eb42c66964d808700ccb3162f9a61~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>sendCommand() 函数里面调用的是 ConnectionType-&gt;sync_write() 函数，在<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529853384785960">第 29 讲《内核解析篇：Redis 网络建连逻辑详解》</a>介绍 connection 结构体的时候提到过，sync_write() 会阻塞等待请求发送完成，底层是通过带超时时间的 poll() 重载来阻塞等待连接可写，然后通过 write() 函数发送请求，具体代码这里就不展开分析了，感兴趣的小伙伴可以查看 connSocketSyncWrite() 函数的实现。</p>
+<h3 id="RECEIVE-PING-REPLY-状态"><a href="#RECEIVE-PING-REPLY-状态" class="headerlink" title="RECEIVE_PING_REPLY 状态"></a>RECEIVE_PING_REPLY 状态</h3><p>发送 PING 请求之后，从库进入 REPL_STATE_RECEIVE_PING_REPLY 状态等待主库的响应。主库在收到 PING 命令之后，会回复 PONG 响应，从库收到 PONG 响应之后，说明主从连接正常，会进入 REPL_STATE_SEND_HANDSHAKE 状态。</p>
+<p>这里从库读取主库 PONG 响应的逻辑，封装在 receiveSynchronousResponse() 函数中，它是通过 ConnectionType-&gt;sync_readline() 实现的，这个函数会阻塞读取主库的响应，其底层通过带超时时间的 poll() 重载来阻塞等待可读事件，然后通过 read() 函数读取连接中的数据。这里的阻塞读取以及上面介绍的阻塞写入的超时时间默认都为 5 秒。具体代码这里就不展开分析了，感兴趣的小伙伴可以查看 connSocketSyncReadLine() 函数的源码实现。</p>
+<h3 id="SEND-HANDSHAKE-状态"><a href="#SEND-HANDSHAKE-状态" class="headerlink" title="SEND_HANDSHAKE 状态"></a>SEND_HANDSHAKE 状态</h3><p>从库进入 REPL_STATE_SEND_HANDSHAKE 状态之后，会阻塞发送 AUTH 请求，其中携带了从库配置的用户名、密码用于主库鉴权。</p>
+<p>之后，从库会阻塞发送一条 REPLCONF 命令，将当前从库的端口号发送给主库。正常情况下，这里发送的是 redisServer.port 字段的值，但是在某些场景（例如，接口转发）中，redisServer.port 与实际的端口号不一致，此时我们可以通过 slave-announce-port 配置指定 REPLCONF 命令中实际发送的端口号。</p>
+<p>正常情况下，主库是可以直接通过主从复制连接获取从库的 IP（底层调用 inet_ntop() 函数），但是在 某些场景（例如，NAT 环境）中，主库获取不到从库的正确 IP，此时从库可以通过 slave-announce-ip 配置项指定一个 IP，从库就会再次发送一条 REPLCONF 命令将该配置指定的 IP 上报给主库，主库后续会将该指定 IP 与 port 的组合起来唯一标识从库。</p>
+<p>最后，从库会发送第三条 REPLCONF 命令，其中携带了从库的一些基本能力说明。例如，eof 表示这个从库支持结束符方式传输 RDB 数据，psync2 表示这个从库支持 PSYNC 2 协议，目前 Redis 从库只需要说明这两种能力即可。</p>
+<h3 id="RECEIVE-REPLY-状态"><a href="#RECEIVE-REPLY-状态" class="headerlink" title="RECEIVE_*_REPLY 状态"></a>RECEIVE_*_REPLY 状态</h3><p>在发送完上述命令之后，从库开始接收主库响应。从库会按照发送命令的顺序，依次进入 RECEIVE_AUTH_REPLY、RECEIVE_PORT_REPLY、RECEIVE_IP_REPLY、RECEIVE_CAPA_REPLY 状态，依次等待 AUTH 命令以及三条 REPLCONF 命令的响应，正常情况下都会收到 “+OK” 的响应。</p>
+<h3 id="SEND-PSYNC-状态"><a href="#SEND-PSYNC-状态" class="headerlink" title="SEND_PSYNC 状态"></a>SEND_PSYNC 状态</h3><p>收到 AUTH 命令以及三条 REPLCONF 命令的响应之后，从库进入 SEND_PSYNC 状态。在该状态下，从库会先向主库发送 PSYNC 命令并等待主库响应，这部分逻辑位于 slaveTryPartialResynchronization() 函数中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">slaveTryPartialResynchronization</span><span class="params">(connection *conn, <span class="type">int</span> read_reply)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> *psync_replid; <span class="comment">// PSYNC命令中的Replication ID值</span></span><br><span class="line"></span><br><span class="line">    <span class="type">char</span> psync_offset[<span class="number">32</span>]; <span class="comment">// PSYNC命令中的Replication Offset值</span></span><br><span class="line"></span><br><span class="line">    sds reply;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!read_reply) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果从库暂存了之前使用的Replication ID信息，就使用这个值</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (server.cached_master) &#123; </span><br><span class="line"></span><br><span class="line">            psync_replid = server.cached_master-&gt;replid;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">snprintf</span>(psync_offset,<span class="keyword">sizeof</span>(psync_offset),<span class="string">&quot;%lld&quot;</span>, </span><br><span class="line"></span><br><span class="line">                server.cached_master-&gt;reploff+<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123; </span><br><span class="line"></span><br><span class="line">            <span class="comment">// 如果未缓存任何主库信息，则Master Replication ID为？，offset为-1</span></span><br><span class="line"></span><br><span class="line">            psync_replid = <span class="string">&quot;?&quot;</span>;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">memcpy</span>(psync_offset,<span class="string">&quot;-1&quot;</span>,<span class="number">3</span>);</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (server.failover_state == FAILOVER_IN_PROGRESS) &#123; </span><br><span class="line"></span><br><span class="line">            ... <span class="comment">// 暂时忽略FAILOVER的相关逻辑</span></span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 发送命令</span></span><br><span class="line"></span><br><span class="line">            reply = sendCommand(conn,<span class="string">&quot;PSYNC&quot;</span>,psync_replid,psync_offset,<span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> PSYNC_WAIT_REPLY;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 下面是处理主库返回的PSYNC响应的逻辑，这里暂时省略，后面会展开分析</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>为了看懂 PSYNC 命令的含义，这里我们需要展开看一下 redisServer 中与主从复制相关的几个核心字段。</p>
+<ul>
+<li><p>replid、replid2 字段：这两个字段是长度固定为 41 的一个 char 类型的数组，两者都是用来记录 Replication ID 的，其中 replid 用来记录当前使用的 Replication ID 值，也就是前面说的 Main ID，replid2 用来记录前面说的 Secondary ID。</p>
+</li>
+<li><p>master_repl_offset 字段：记录了当前自身的 Replication Offset，单位是字节。虽然这个字段开头是 master，但是在从库中，也是表示自身的 Replication Offset。</p>
+</li>
+<li><p>master、cached_master 字段：client 类型，这两个 client 实例可能对应不同的主库。其中，master 是当前从库与主库交互的 client 实例，cached_master 字段是当前从库与上一个主库交互的 client 实例。举个例子，假设从库与主库的网络出现瞬时断开的情况，在网络断开时，从库会将 master 字段缓存到 cached_master 中并清空 redisServer.master 字段。等到之后当前从库与主库重新连接之后，PSYNC 命令需要携带 Replication ID 和 Replication Offset 进行请求，期望进行部分同步，这就是我们在上面展示的 slaveTryPartialResynchronization() 函数片段中使用 cached_master 字段的原因。</p>
+</li>
+</ul>
+<p>我们再进一步，看一下 cached_master 字段初始化的位置，如下图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f81350d14c734d7eb39489782d76efcb~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>其中，replicationCacheMaster() 是在 freeClient() 中被调用的，也就是主从连接断开时被调用；replicationCacheMasterUsingMyself() 是在主库转换为从库时被触发。这两个函数的实现我们后面碰到了，再展开细说，这里只需要知道 master 和 cached_master 之间的关系即可。</p>
+<p>通过对 redisServer.master 等字段的介绍，我们会发现，在 client 中也记录了一些与主从复制相关的信息，例如，client-&gt;replid、client-&gt;reploff 字段，这两个字段记录了 Replication ID 以及 Replication Offset。</p>
+<h3 id="RECEIVE-PSYNC-REPLY-状态"><a href="#RECEIVE-PSYNC-REPLY-状态" class="headerlink" title="RECEIVE_PSYNC_REPLY 状态"></a>RECEIVE_PSYNC_REPLY 状态</h3><p>发送完成 PSYNC 命令之后，从库进入到 RECEIVE_PSYNC_REPLY 状态，等待主库返回 PSYNC 命令的响应。从库处理 PSYNC 响应的逻辑依旧位于 slaveTryPartialResynchronization() 函数中，核心逻辑如下：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7f4096e65efd4b5fb2da579934f68bcc~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p><code>下面来看看 slaveTryPartialResynchronization() 函数是如何分别处理不同响应值的。</code></p>
+<p><strong>如果主库返回 +FULLRESYNC 响应</strong>，对应上图最左边的分支，表示前面发送的 PSYNC 命令中携带的 Replication ID 和 Replication Offset 不符合部分同步的条件，从库会读取 +FULLRESYNC 响应中携带新 Replication ID 和 Replication Offset 值，并更新到 redisServer.master_replid 和 server.master_initial_offset 字段中。因为上一任主库的复制信息已经无效，所以这里会释放掉 server.cached_master 这个 client 实例。</p>
+<p><strong>如果主库返回 +CONTINUE</strong>，对应上图中左边第二条分支，表示前面发送的 PSYNC 命令中携带的 Replication ID 和 Replication Offset 符合部分同步的条件。如果 +CONTINUE 响应中携带了新库的 Replication ID 值，含义是如下图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/095e99f22c9042af90d6e13f1d1954aa~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>从库 C 之前是与主库 A 同步，但主库 A 下线之后，从库 B 升级为主库，它会在 server.replid2 字段中暂存了上一任主库 A 的 Replication ID 等信息，并复制了主库 A 的缓冲队列，当收到从库 C 的 PSYNC 请求（携带上一任主库 A 的 Replication ID）时，依旧也是可以与从库 C 进行部分同步的，这部分逻辑就是前面描述的 PSYNC2 的优化。B 这个新主库需要通过 +CONTINUE 响应，将自己新生成的 Replication ID 通知到从库 C。</p>
+<p>从库 C 收到主库 B 的新 Replication ID，就会更新到 redisServer.replid 和 redisServer.cached_master-&gt;replid 中，而上一任主库使用的 Replication ID 会迁移到 redisServer.replid2 字段中，这样，新的主从库信息就保持一致了。</p>
+<p>完成新主库的 Replication ID 的同步之后，从库开始构造与新主库交互的 client 实例，这里部分逻辑位于 replicationResurrectCachedMaster() 函数中，其中会重新将 redisServer.cached_master 赋值回 master 来重用该 client 实例，并对底层连接（也就是 redisServer.repl_transfer_s）添加可读可写事件的监听，具体实现片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">replicationResurrectCachedMaster</span><span class="params">(connection *conn)</span> &#123;</span><br><span class="line"></span><br><span class="line">    server.master = server.cached_master; <span class="comment">// 重用cached_master实例</span></span><br><span class="line"></span><br><span class="line">    server.cached_master = <span class="literal">NULL</span>; <span class="comment">// 清空cached_master字段</span></span><br><span class="line"></span><br><span class="line">    server.master-&gt;conn = conn; <span class="comment">//设置新的connection连接</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 将client实例绑定到connection连接的private_data字段中，</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 后续使用connection的时候可以通过connGetPrivateData()拿到client实例</span></span><br><span class="line"></span><br><span class="line">    connSetPrivateData(server.master-&gt;conn, server.master);</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他字段的设置逻辑</span></span><br><span class="line"></span><br><span class="line">    server.repl_state = REPL_STATE_CONNECTED; <span class="comment">// 更新repl_state状态</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    linkClient(server.master); <span class="comment">// master这个client添加到server.clients列表</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 添加可读事件和可写事件的监听，可读事件回调为readQueryFromClient，</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 可写事件回调会sendReplyToClient</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (connSetReadHandler(server.master-&gt;conn, readQueryFromClient)) &#123;...&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (clientHasPendingReplies(server.master)) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (connSetWriteHandler(server.master-&gt;conn, sendReplyToClient)) &#123;...&#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>如果主库返回 -NOMASTERLINK、-LOADING 响应</strong>，说明主库无法立刻响应从库的复制请求；<strong>如果主库返回 -ERR 或是其他未知响应</strong>，说明主库不支持 PSYNC 请求。这两个分支对应上图中最右边的两条分支。</p>
+<p>到此为止，主库和从库之间的握手操作就执行完了。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这一节中，我们重点以从库的视角，分析了 Redis 主从复制的核心实现。首先，我们站在从库的角度，深入分析了 Redis 主从建连的关键流程；然后，结合 Redis 源码，分析了 Redis 主从握手流程中，从库状态机的流转过程。</p>
+<p>下一节中，我们将继续以从库的视角，分析 Redis 主从建立之后的全量同步过程以及进入 CONNECTED 状态之后的正常数据同步流程。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC48%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC48%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC47%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%89%96%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8E%E5%BA%93%E5%BB%BA%E8%BF%9E"><span class="toc-number">1.</span> <span class="toc-text">从库建连</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%BE%E7%BD%AE%E4%B8%BB%E5%BA%93%E5%9C%B0%E5%9D%80"><span class="toc-number">1.1.</span> <span class="toc-text">设置主库地址</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BB%BA%E8%BF%9E%E8%A7%A6%E5%8F%91%E6%97%B6%E6%9C%BA"><span class="toc-number">1.2.</span> <span class="toc-text">建连触发时机</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%BB%BA%E8%BF%9E%E8%BF%87%E7%A8%8B"><span class="toc-number">1.3.</span> <span class="toc-text">建连过程</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%BB%E4%BB%8E%E6%8F%A1%E6%89%8B"><span class="toc-number">2.</span> <span class="toc-text">主从握手</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#CONNECTING-%E7%8A%B6%E6%80%81"><span class="toc-number">2.1.</span> <span class="toc-text">CONNECTING 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RECEIVE-PING-REPLY-%E7%8A%B6%E6%80%81"><span class="toc-number">2.2.</span> <span class="toc-text">RECEIVE_PING_REPLY 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SEND-HANDSHAKE-%E7%8A%B6%E6%80%81"><span class="toc-number">2.3.</span> <span class="toc-text">SEND_HANDSHAKE 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RECEIVE-REPLY-%E7%8A%B6%E6%80%81"><span class="toc-number">2.4.</span> <span class="toc-text">RECEIVE_*_REPLY 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#SEND-PSYNC-%E7%8A%B6%E6%80%81"><span class="toc-number">2.5.</span> <span class="toc-text">SEND_PSYNC 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RECEIVE-PSYNC-REPLY-%E7%8A%B6%E6%80%81"><span class="toc-number">2.6.</span> <span class="toc-text">RECEIVE_PSYNC_REPLY 状态</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

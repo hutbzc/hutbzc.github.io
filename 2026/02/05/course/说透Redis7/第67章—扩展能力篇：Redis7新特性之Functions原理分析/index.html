@@ -1,0 +1,278 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="上一节，我们详细介绍了 Redis 如何通过 Lua 脚本进行扩展，以及 Redis 底层是如何执行 Lua 脚本的。在 Redis 7 中，引入了 Functions 这种新的扩展方式，之所以引入 Functions 这种扩展方式，因为 Lua 脚本的的一些局限性，例如：  Lua 脚本在发到 Redis 服务端之后，只是暂存在内存中，不会进行持久化。当 Redis 重启或者出现主从切换，Lua">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="上一节，我们详细介绍了 Redis 如何通过 Lua 脚本进行扩展，以及 Redis 底层是如何执行 Lua 脚本的。在 Redis 7 中，引入了 Functions 这种新的扩展方式，之所以引入 Functions 这种扩展方式，因为 Lua 脚本的的一些局限性，例如：  Lua 脚本在发到 Redis 服务端之后，只是暂存在内存中，不会进行持久化。当 Redis 重启或者出现主从切换，Lua">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.712Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.712Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.712Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>上一节，我们详细介绍了 Redis 如何通过 Lua 脚本进行扩展，以及 Redis 底层是如何执行 Lua 脚本的。在 Redis 7 中，引入了 Functions 这种新的扩展方式，之所以引入 Functions 这种扩展方式，因为 Lua 脚本的的一些局限性，例如：</p>
+<ul>
+<li>Lua 脚本在发到 Redis 服务端之后，只是暂存在内存中，不会进行持久化。当 Redis 重启或者出现主从切换，Lua 脚本就会丢失，需要客户端重新上传。这样的话，就需要所有的客户端都要保留一份 Lua 脚本，并实现一套上传 Lua 脚本的逻辑。</li>
+<li>Lua 脚本进行代码更新的时候，也是同样的逻辑。除了要在 Redis 服务端进行更新，还需要同步全部客户端进行更新，否则，就会出现脚本代码不一致的情况。</li>
+<li>另外，Lua 脚本之间是不能相互调用的，这就会造成许多代码重复，从开发和维护角度来说，都不是一件好事。</li>
+</ul>
+<h2 id="Functions-基本使用"><a href="#Functions-基本使用" class="headerlink" title="Functions 基本使用"></a>Functions 基本使用</h2><p>下面我们开始介绍一下 Redis Functions 的基本使用。</p>
+<p><strong>Redis Functions 目前只支持 Lua 脚本</strong>，所以我们先来定义 check_key()、my_hset() 和 my_hgetall() 三个 Lua function，具体如下所示。其中，my_hset() 函数在 HSET 命令之上做了扩展，它不仅会将传入的键值对写入到指定的 Hash 表，还会多加一个名为 <code>“_last_modified_”</code> 的 field，对应的 value 是写入时间。my_hset() 在执行 HSET 命令之前，还会调用 check_key() 函数检查传入的 Hash Key 的个数。定义完这两个函数之后，我们还要调用 redis.register_function() 来注册 my_hset() 函数。my_hgetall() 函数用来与 my_hset() 搭配使用，它的关键点在于 <code>redis.setresp(3)</code> 这行代码会将指定当前要使用 RESP3 协议，这样后面的 HGETALL 命令返回值才能会按照 map 的格式去处理。</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">#!lua name=mylib   <span class="comment">-- 指定lib</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">local</span> <span class="function"><span class="keyword">function</span> <span class="title">check_key</span><span class="params">(keys)</span></span> <span class="comment">--定义check_keys函数</span></span><br><span class="line">    <span class="keyword">local</span> <span class="built_in">error</span> = <span class="literal">nil</span> </span><br><span class="line">    <span class="keyword">local</span> nkeys = <span class="built_in">table</span>.<span class="built_in">getn</span>(keys) <span class="comment">-- 检查keys数组的长度</span></span><br><span class="line">    <span class="keyword">if</span> nkeys == <span class="number">0</span> <span class="keyword">then</span></span><br><span class="line">      <span class="built_in">error</span> = <span class="string">&#x27;Hash key name not provided&#x27;</span></span><br><span class="line">    <span class="keyword">elseif</span> nkeys &gt; <span class="number">1</span> <span class="keyword">then</span></span><br><span class="line">      <span class="built_in">error</span> = <span class="string">&#x27;Only one key name is allowed&#x27;</span></span><br><span class="line">    <span class="keyword">end</span></span><br><span class="line">  </span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">error</span> ~= <span class="literal">nil</span> <span class="keyword">then</span> <span class="comment">-- 如果keys参数异常，会打印日志，并给客户端返回异常</span></span><br><span class="line">      redis.<span class="built_in">log</span>(redis.LOG_WARNING, <span class="built_in">error</span>);</span><br><span class="line">      <span class="keyword">return</span> redis.error_reply(<span class="built_in">error</span>)</span><br><span class="line">    <span class="keyword">end</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line"><span class="keyword">end</span></span><br><span class="line">  </span><br><span class="line"><span class="keyword">local</span> <span class="function"><span class="keyword">function</span> <span class="title">my_hset</span><span class="params">(keys, args)</span></span> <span class="comment">-- 定义my_hset函数</span></span><br><span class="line">    <span class="keyword">local</span> <span class="built_in">error</span> = check_keys(keys)  <span class="comment">-- 调用check_keys()函数，检查keys参数的长度 </span></span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">error</span> ~= <span class="literal">nil</span> <span class="keyword">then</span></span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">error</span></span><br><span class="line">    <span class="keyword">end</span></span><br><span class="line">  </span><br><span class="line">    <span class="keyword">local</span> hash = keys[<span class="number">1</span>] <span class="comment">-- 获取Hash的Key</span></span><br><span class="line">    <span class="keyword">local</span> <span class="built_in">time</span> = redis.call(<span class="string">&#x27;TIME&#x27;</span>)[<span class="number">1</span>]  <span class="comment">-- 获取当前时间</span></span><br><span class="line">    <span class="comment">-- 调用HSET命令，设置多个KV值，其中会用_last_modified_这个field来记录当前时间戳，</span></span><br><span class="line">    <span class="comment">-- 其他field来自my_hset函数的参数</span></span><br><span class="line">    <span class="keyword">return</span> redis.call(<span class="string">&#x27;HSET&#x27;</span>, hash, <span class="string">&#x27;_last_modified_&#x27;</span>, <span class="built_in">time</span>, <span class="built_in">unpack</span>(args))</span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">local</span> <span class="function"><span class="keyword">function</span> <span class="title">my_hgetall</span><span class="params">(keys, args)</span></span></span><br><span class="line">    <span class="keyword">local</span> <span class="built_in">error</span> = check_keys(keys) <span class="comment">-- 调用check_keys()函数，检查keys参数的长度 </span></span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">error</span> ~= <span class="literal">nil</span> <span class="keyword">then</span></span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">error</span></span><br><span class="line">    <span class="keyword">end</span></span><br><span class="line">  redis.setresp(<span class="number">3</span>) <span class="comment">-- 使用RESP3</span></span><br><span class="line">  <span class="keyword">local</span> hash = keys[<span class="number">1</span>]</span><br><span class="line">  <span class="keyword">local</span> res = redis.call(<span class="string">&#x27;HGETALL&#x27;</span>, hash) <span class="comment">-- 调用HGETALL命令</span></span><br><span class="line">  res[<span class="string">&#x27;map&#x27;</span>][<span class="string">&#x27;_last_modified_&#x27;</span>] = <span class="literal">nil</span> <span class="comment">-- 将_last_modified_字段清理掉</span></span><br><span class="line">  <span class="keyword">return</span> res</span><br><span class="line"><span class="keyword">end</span></span><br><span class="line">  </span><br><span class="line"><span class="comment">-- 注册my_hset函数</span></span><br><span class="line">redis.register_function(<span class="string">&#x27;my_hset&#x27;</span>, my_hset)</span><br><span class="line"><span class="comment">-- 注册my_hgetall函数</span></span><br><span class="line">redis.register_function(<span class="string">&#x27;my_hgetall&#x27;</span>, my_hgetall)</span><br></pre></td></tr></table></figure>
+
+
+<p>编写完 Lua 脚本之后，我们就可以用 FUNCTION LOAD 命令进行加载了，具体命令如下。加载成功之后，返回的就是 Lua 脚本中指定的 lib 库的名称：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">➜  src git:(heads/7.0.0) ✗ cat test.lua| redis-cli -x FUNCTION LOAD REPLACE</span><br><span class="line">&quot;mylib&quot;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>到此为止，我们就在 Redis 中创建好了一个叫 my_hset() 的函数，接下来我们可以用 FCALL 命令来调用这个函数的话，具体如下所示。紧跟在 FCALL 命令之后的第一个参数是刚刚我们定义好的 my_hset() 函数的函数名称，然后是传入 my_hset() 的 keys 参数的长度，这里是 1，也就是后面的 testHash 字符串将作为 keys 数组传入，最后的 <code>f1 v1 f2 v2</code> 四个参数，会作为 args 数组传入到 my_hset() 函数。</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6379</span>&gt; FCALL my_hset <span class="number">1</span> testHash f1 v1 f2 v2</span><br><span class="line">(integer) <span class="number">3</span></span><br><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6379</span>&gt; HGETALL testHash</span><br><span class="line"><span class="number">1</span>) <span class="string">&quot;_last_modified_&quot;</span></span><br><span class="line"><span class="number">2</span>) <span class="string">&quot;1660006387&quot;</span></span><br><span class="line"><span class="number">3</span>) <span class="string">&quot;f1&quot;</span></span><br><span class="line"><span class="number">4</span>) <span class="string">&quot;v1&quot;</span></span><br><span class="line"><span class="number">5</span>) <span class="string">&quot;f2&quot;</span></span><br><span class="line"><span class="number">6</span>) <span class="string">&quot;v2&quot;</span></span><br><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6379</span>&gt; FCALL my_hset <span class="number">2</span> testHash testHash2 f1 v1 f2 v2</span><br><span class="line">(<span class="built_in">error</span>) Only one key name is allowed</span><br><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6379</span>&gt; FCALL my_hgetall <span class="number">1</span> testHash</span><br><span class="line"><span class="number">1</span>) <span class="string">&quot;f1&quot;</span></span><br><span class="line"><span class="number">2</span>) <span class="string">&quot;v1&quot;</span></span><br><span class="line"><span class="number">3</span>) <span class="string">&quot;f2&quot;</span></span><br><span class="line"><span class="number">4</span>) <span class="string">&quot;v2&quot;</span></span><br></pre></td></tr></table></figure>
+
+
+<p>执行完上述 my_hset() 函数之后，我们用 HGETALL 命令查看 testHash 中的全部 field 和 value 值，发现其中除了 f1、v1 和 f2、v2 两组键值对之外，还多出了一个 <code>“_last_modified_”</code>，记录了调用 my_hset() 的时间戳，这也就和我们前面介绍的 my_hset() 函数逻辑对应上了。</p>
+<p>我们再调用一次 my_hset() 函数，但这里让 keys 数组长度变成 2，就会被 check_key() 函数的检查拦住，并返回 <code>Only one key name is allowed</code> 提示。</p>
+<p>最后，我们调用一下 my_hgetall() 函数，可以看到它会将 <code>“_last_modified_”</code> 这个 field 抹去之后返回。这样，通过 my_hset() 和 my_hgetall() 两个函数，我们就实现了添加 <code>“_last_modified_”</code> 隐藏字段的效果。</p>
+<h2 id="Redis-Function-核心结构体"><a href="#Redis-Function-核心结构体" class="headerlink" title="Redis Function 核心结构体"></a>Redis Function 核心结构体</h2><p>在开始介绍 Function 的相关命令之前，我们先来了解一下 Redis Function 涉及到的一些核心结构体。</p>
+<p>首先是 functionLibInfo 结构体，它表示的是一个函数库，例如上面的示例中 mylib。functionLibInfo 中维护了整个函数库的源码，以及每个函数对应的 functionInfo 实例，其具体定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">functionLibInfo</span> </span></span><br><span class="line"><span class="class">    <span class="title">sds</span> <span class="title">name</span>;</span>        <span class="comment">// 函数库的名称，也就是示例中的mylib</span></span><br><span class="line">    dict *functions; <span class="comment">// 当前函数库中的函数，Key是函数名称，Value是函数对应的functionInfo实例</span></span><br><span class="line">    engineInfo *ei;  <span class="comment">// 函数关联的引擎，目前只有Lua脚本引擎</span></span><br><span class="line">    sds code;        <span class="comment">// 函数库的代码，也就是示例中的整个Lua脚本的内容</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>接下来看 functionInfo 结构体，它用来表示函数库中的一个函数，具体定义如下。在上述示例中，check_key() 和 my_hset() 两个函数，分别对应一个 functionInfo 实例。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">functionInfo</span> &#123;</span></span><br><span class="line">    sds name;            <span class="comment">// 函数名称，也就是示例中的check_key和my_hset</span></span><br><span class="line">    <span class="type">void</span> *function;      <span class="comment">// 由Lua引擎设置的指针，指向了编译后的代码，运行函数的时候，就会用到这个指针</span></span><br><span class="line">    functionLibInfo* li; <span class="comment">// 指向了所属的函数库</span></span><br><span class="line">    sds desc;            <span class="comment">// 函数的描述信息</span></span><br><span class="line">    <span class="type">uint64_t</span> f_flags;    <span class="comment">// 用于指定函数的一些特性，这个后面再说</span></span><br><span class="line">&#125; functionInfo;</span><br></pre></td></tr></table></figure>
+
+<p>最后来看 engine 结构体，它类似于一个接口，其中定义了多个函数指针，用来抽象一个 function 引擎，其关键字段的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">engine</span> &#123;</span></span><br><span class="line">    <span class="type">void</span> *engine_ctx; <span class="comment">// 引擎上下文信息，在Lua引擎中，包含了前面提到的lua_State，用于执行Lua脚本</span></span><br><span class="line">    <span class="comment">// create函数用于编译Lua脚本，并注册函数库</span></span><br><span class="line">    <span class="type">int</span> (*create)(<span class="type">void</span> *engine_ctx, functionLibInfo *li, sds code, sds *err);</span><br><span class="line">    <span class="comment">// call函数用于调用指定的函数</span></span><br><span class="line">    <span class="type">void</span> (*call)(scriptRunCtx *r_ctx, <span class="type">void</span> *engine_ctx, <span class="type">void</span> *compiled_function,</span><br><span class="line">            robj **keys, <span class="type">size_t</span> nkeys, robj **args, <span class="type">size_t</span> nargs);</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他不重要的函数指针</span></span><br><span class="line">&#125; engine;</span><br></pre></td></tr></table></figure>
+
+
+<p>目前 Redis 只有 Lua 一种引擎，在 Redis 启动的时候会初始化 Lua 引擎，并记录到全局的 engines 字典中，其中 Key 是 “LUA” 这个字符串，Value 是 Lua 对应的 engine 实例。</p>
+<p align=center><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f3ff2f8dc10a4e0f8456efc281cd35f4~tplv-k3u1fbpfcp-zoom-1.image" alt=""  /></p>
+
+
+
+<p>另外，Redis 还会维护一个全局的 functionsLibCtx 上下文信息（curr_functions_lib_ctx 全局变量），其中维护了 libraries 和 functions 两个集合，分别记录了全部的函数库和函数，这就方便我们用名称来查找函数库或是函数。</p>
+<p>最后，我们通过一张图来简单总结一下上述核心结构体之间的关系：</p>
+<p align=center><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/371ee004365d4e6792a8c0246e1eeca7~tplv-k3u1fbpfcp-watermark.image?" alt="image.png"  /></p>
+
+  
+
+
+<h2 id="FUNCTION-LOAD-命令原理"><a href="#FUNCTION-LOAD-命令原理" class="headerlink" title="FUNCTION LOAD 命令原理"></a>FUNCTION LOAD 命令原理</h2><p>介绍完 Redis Functions 相关的核心结构体之后，我们正式开始看 Function 相关的命令实现原理。</p>
+<p>这里先来看看 FUNCTION LOAD 命令的完整格式化，如下所示。它除了可以指定 lua function 的具体代码实现之外，还可以指定一个 REPLACE 参数，用于更新已存在的 lua function 的代码实现。</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">FUNCTION LOAD [REPLACE] <span class="function"><span class="keyword">function</span>-<span class="title">code</span></span></span><br></pre></td></tr></table></figure>
+
+
+<p>FUNCTION LOAD 命令加载 function 的核心逻辑位于 functionsCreateWithLibraryCtx() 中，下面结合我们的实例，分析一下其核心逻辑，如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line">sds <span class="title function_">functionsCreateWithLibraryCtx</span><span class="params">(sds code, <span class="type">int</span> replace, sds* err, functionsLibCtx *lib_ctx)</span> &#123;</span><br><span class="line">    dictIterator *iter = <span class="literal">NULL</span>;</span><br><span class="line">    dictEntry *entry = <span class="literal">NULL</span>;</span><br><span class="line">    functionLibInfo *new_li = <span class="literal">NULL</span>;</span><br><span class="line">    functionLibInfo *old_li = <span class="literal">NULL</span>;</span><br><span class="line">    functionsLibMataData md = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">    <span class="comment">// 1.过 functionExtractLibMetaData() 函数，从 Lua 脚本中提取函数库的基本信息，</span></span><br><span class="line">    <span class="comment">// 主要就是解析 Lua 脚本的第一行 #!lua name=mylib </span></span><br><span class="line">    <span class="keyword">if</span> (functionExtractLibMetaData(code, &amp;md, err) != C_OK) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    ... <span class="comment">// 省略校验逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.从 functionsLibCtx 中查找是否有重名的函数库。如果是替换逻辑，就会将旧的函数库释放掉；如果是单纯新增函数库，如果出现同名的函数库，直接抛出异常</span></span><br><span class="line">    engineInfo *ei = dictFetchValue(engines, md.engine);</span><br><span class="line">    <span class="keyword">if</span> (!ei) &#123;</span><br><span class="line">        *err = sdscatfmt(sdsempty(), <span class="string">&quot;Engine &#x27;%S&#x27; not found&quot;</span>, md.engine);</span><br><span class="line">        <span class="keyword">goto</span> error;</span><br><span class="line">    &#125;</span><br><span class="line">    engine *engine = ei-&gt;engine;</span><br><span class="line"></span><br><span class="line">    old_li = dictFetchValue(lib_ctx-&gt;libraries, md.name);</span><br><span class="line">    <span class="keyword">if</span> (old_li &amp;&amp; !replace) &#123;</span><br><span class="line">        old_li = <span class="literal">NULL</span>;</span><br><span class="line">        *err = sdscatfmt(sdsempty(), <span class="string">&quot;Library &#x27;%S&#x27; already exists&quot;</span>, md.name);</span><br><span class="line">        <span class="keyword">goto</span> error;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (old_li) &#123;</span><br><span class="line">        libraryUnlink(lib_ctx, old_li);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 执行 engineLibraryCreate() 函数，为传入的 mylib 创建对应的 functionLibInfo 实例</span></span><br><span class="line">    new_li = engineLibraryCreate(md.name, ei, code);</span><br><span class="line">    <span class="comment">// 3.调用 Lua 引擎的 luaEngineCreate() 编译脚本，同时，还是执行一下 Lua 脚本</span></span><br><span class="line">    <span class="keyword">if</span> (engine-&gt;create(engine-&gt;engine_ctx, new_li, md.code, err) != C_OK) &#123;</span><br><span class="line">        <span class="keyword">goto</span> error;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略后续的校验逻辑</span></span><br><span class="line">    sds loaded_lib_name = md.name;</span><br><span class="line">    md.name = <span class="literal">NULL</span>;</span><br><span class="line">    functionFreeLibMetaData(&amp;md);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> loaded_lib_name;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>通过 functionExtractLibMetaData() 函数，从 Lua 脚本中提取函数库的基本信息，主要就是解析 Lua 脚本的第一行 <code>#!lua name=mylib </code>。从这一行中，可以看到这个脚本要使用的 Lua 引擎，函数库的名称为 mylib。</p>
+</li>
+<li><p>从 functionsLibCtx 中查找是否有重名的函数库。如果是替换逻辑，就会将旧的函数库释放掉；如果是单纯新增函数库，如果出现同名的函数库，直接抛出异常。然后执行 engineLibraryCreate() 函数，为传入的 mylib 创建对应的 functionLibInfo 实例。</p>
+</li>
+<li><p>调用 Lua 引擎的 luaEngineCreate() 编译脚本，同时，还是执行一下 Lua 脚本。注意，在示例脚本中，my_hset() 和 check_key() 两个函数只有函数定义，没有被调用，所以示例脚本在执行的时候，只会执行 <code>redis.register_function(&#39;my_hset&#39;, my_hset)</code> 和 <code>redis.register_function(&#39;my_hgetall&#39;, my_hgetall)</code>这两行 Lua 代码。</p>
+</li>
+</ol>
+<ul>
+<li><p>在 Redis 初始化的时候，会将 luaRegisterFunction() 函数注册为 redis.register_function() 的回调函数，所以这里会触发 luaRegisterFunction() 函数，相关的代码片段如下：</p>
+  <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">luaEngineInitEngine</span><span class="params">()</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他代码</span></span><br><span class="line">   lua_pushstring(lua_engine_ctx-&gt;lua, <span class="string">&quot;register_function&quot;</span>);</span><br><span class="line">   lua_pushcfunction(lua_engine_ctx-&gt;lua, luaRegisterFunction);</span><br><span class="line">   lua_settable(lua_engine_ctx-&gt;lua, <span class="number">-3</span>);</span><br><span class="line">   ... <span class="comment">// 省略其他代码</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>luaRegisterFunction() 函数中会为 my_hset() 函数和 my_hgetall() 函数创建对应的 functionInfo 实例，并填充到 functionLibInfo-&gt;functions 字段，这样就实现了函数注册的效果。</p>
+</li>
+</ul>
+<ol start="4">
+<li>调用 libraryLink() 函数，将上面新建的一个 functionLibInfo 实例以及两个 functionInfo 实例，全部记录到全局 functionsLibCtx 实例中。之后要调用函数的时候，就从这个全局 functionsLibCtx 实例中，按名称进行查找。</li>
+</ol>
+<p>FUNCTION LOAD 命令在执行完成上述逻辑之后，还会将 redisServer.dirty 加一，表示该命令修改了数据，这样，FUNCTION LOAD 命令就可以实现传播到从库以及写入到 AOF 日志中的效果。</p>
+<p>除了 AOF 这种持久化方式，上述定义的函数还支持持久化到 RDB 文件中，相应的持久化逻辑位于 rdbSaveFunctions() 函数，其中会遍历全局 functionsLibCtx 实例中存储的全部 functionInfo，将其中记录的 Lua 源码存到 RDB 文件中。</p>
+<h2 id="FCALL-命令实现原理"><a href="#FCALL-命令实现原理" class="headerlink" title="FCALL 命令实现原理"></a>FCALL 命令实现原理</h2><p>通过 FUNCTION LOAD 加载完 Lua 函数库之后，就可以使用 FCALL 命令来执行函数了。</p>
+<p>fcallCommandGeneric() 函数是处理 FCALL 命令的核心，其关键步骤如下。</p>
+<ol>
+<li><p>根据 FCALL 命令指定的函数名称，从全局 functionsLibCtx-&gt;functions 字典中，查找对应的 functionInfo 实例。</p>
+</li>
+<li><p>调用 scriptPrepareForRun() 函数初始化 scriptRunCtx 上下文实例，scriptRunCtx 中记录了一些函数执行的上下文信息，例如，此次触发的函数名称、执行函数的 fake client 引用、真正触发函数的客户端 client 引用等等。</p>
+<p>在 scriptPrepareForRun() 函数中还会结合 Redis 的运行状态与 functionInfo-&gt;t_flags 标志做一些检查，t_flags 标志是在 <code>redis.register_function()</code>注册函数的时候指定的，可选的标志有下面几个。</p>
+<ul>
+<li>no-writes：表示该函数只会读数据，不能写入数据。</li>
+<li>allow-oom：在 Redis 内存满了的时候，该函数依旧可以执行。</li>
+<li>allow-stale：如果该函数运行在了从库上，从库与主库断开了连接或者出现延迟，该函数依旧可以执行。</li>
+<li>no-cluster：表示该函数不能在 Redis Cluster 上执行。</li>
+<li>allow-cross-slot-keys：表示该函数可以读写多个 slot 中的 Key，但是，函数中每条 Redis 命令，还是只能读写单个 slot 中的 Key。</li>
+</ul>
+</li>
+<li><p>最后调用 engine-&gt;call()，也就是 luaEngineCall() 函数，该执行 Lua 函数。它底层也是依赖上一小节介绍的 luaCallFunction() 函数来执行 Lua 脚本的，具体逻辑在上一小节已经详细分析过了，这里不再重复。</p>
+</li>
+</ol>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在本节中，我们重点介绍了 Redis 7 引入的 Function 新特性。我们首先讲解了 Redis Function 的基本使用，然后介绍了 Redis 是如何支持 Function 这一新特性的，其中包括 Redis Function 特性使用的关键结构体介绍，以及 <code>FUNCTION LOAD</code> 和 <code>FCALL</code> 两个关键命令的实现解析。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Functions-%E5%9F%BA%E6%9C%AC%E4%BD%BF%E7%94%A8"><span class="toc-number">1.</span> <span class="toc-text">Functions 基本使用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Redis-Function-%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84%E4%BD%93"><span class="toc-number">2.</span> <span class="toc-text">Redis Function 核心结构体</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#FUNCTION-LOAD-%E5%91%BD%E4%BB%A4%E5%8E%9F%E7%90%86"><span class="toc-number">3.</span> <span class="toc-text">FUNCTION LOAD 命令原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#FCALL-%E5%91%BD%E4%BB%A4%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-number">4.</span> <span class="toc-text">FCALL 命令实现原理</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

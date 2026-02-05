@@ -1,0 +1,309 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="通过前面几节的介绍我们知道，Redis 中的事件驱动中，除了网络事件之外，还有时间事件，但是在前文的介绍中，我们完全没有提及到这部分内容。因此，在这一节中，我们就来补齐 Redis 时间事件的相关内容。 不过，在这之前，我们先一起来回顾一下 Redis 是如何处理时间事件的。你可以把 Redis 中的时间事件，理解成定时任务，正如第 28 讲《内核解析篇：Redis 事件驱动核心框架解析》所说，这">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC33%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="通过前面几节的介绍我们知道，Redis 中的事件驱动中，除了网络事件之外，还有时间事件，但是在前文的介绍中，我们完全没有提及到这部分内容。因此，在这一节中，我们就来补齐 Redis 时间事件的相关内容。 不过，在这之前，我们先一起来回顾一下 Redis 是如何处理时间事件的。你可以把 Redis 中的时间事件，理解成定时任务，正如第 28 讲《内核解析篇：Redis 事件驱动核心框架解析》所说，这">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.706Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.707Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC33%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.706Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.707Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>通过前面几节的介绍我们知道，Redis 中的事件驱动中，除了网络事件之外，还有时间事件，但是在前文的介绍中，我们完全没有提及到这部分内容。因此，在这一节中，我们就来补齐 Redis 时间事件的相关内容。</p>
+<p>不过，在这之前，我们先一起来回顾一下 Redis 是如何处理时间事件的。你可以把 Redis 中的时间事件，理解成<code>定时任务</code>，正如<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529834703847465">第 28 讲《内核解析篇：Redis 事件驱动核心框架解析》</a>所说，这些时间事件与维护在 aeEventLoop-&gt;timeEventHead 链表中的 aeTimeEvent 实例一一对应。</p>
+<p>在<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529834703847465">第 28 讲《内核解析篇：Redis 事件驱动核心框架解析》</a>介绍 aeProcessEvents() 函数的时候我们看到，在它最后，会调用 processTimeEvents() 函数去处理时间事件，其<code>核心逻辑就是遍历 aeEventLoop-&gt;timeEventHead 链表</code>。在遍历过程中，先会检查每个 aeTimeEvent 元素的 id 值是否为 AE_DELETED_EVENT_ID(-1)，以及 refcount 是否为 0。如果满足这两个条件，表示这个时间事件之后不会再被触发，也没有被其他逻辑使用到，这个时候就可以把这个 aeTimeEvent 节点从链表中删除并释放掉。</p>
+<p>要是一个 aeTimeEvent 不满足上述两个条件，就表示可能还会被触发，此时就会去检查它是否到期了，其实就是比较它的 when 字段与当前时间戳。如果已到期，就触发它的 timeProc 回调函数。timeProc() 函数返回了一个 int 值，表示该时间事件下次的触发时间。如果返回 -1，我们就认为该时间事件不会再触发，此时就要将其 id 设置为 -1，等待下次遍历的时候删除这个节点。否则，就更新其 when 字段，等待下次到期触发。</p>
+<h2 id="serverCron-函数"><a href="#serverCron-函数" class="headerlink" title="serverCron() 函数"></a>serverCron() 函数</h2><p>了解了 Redis 如何处理时间事件之后，我们再来看 Redis 中有哪些时间事件。下图展示了 aeCreateTimeEvent() 函数的调用位置：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6aa9f0a09fbf47d3bcf72c971d766f59~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>从上图中我们看出，Redis 里面创建时间事件的地方只有两个：startEvictionTimeProc() 函数与 Redis 的数据淘汰机制相关，我们会在后面拿一节的篇幅详细介绍；<strong>本节将重点介绍 initServer() 里面创建的这个时间事件</strong>。</p>
+<p>从上图中我们看到，在 initServer() 进行初始化的时候，会初始化一个时间事件，其 timeProc 字段指向 serverCron() 函数，下一次触发的时间是 1 毫秒之后，可以认为是立刻触发；然后是 serverCron() 函数的返回值，是 1000&#x2F;server.hz，hz 是一个大于 0 的整数，也就是说 serverCron() 函数会<code>周期性</code>地被调用，而且间隔不会超过 1 秒。</p>
+<p>确定了 serverCron() 函数触发时机，以及触发的频率之后，我们就可以深入看看 serverCron() 函数中到底有哪些操作。</p>
+<h3 id="重置-watchdog-定时器"><a href="#重置-watchdog-定时器" class="headerlink" title="重置 watchdog 定时器"></a>重置 watchdog 定时器</h3><p>watchdog 是 Redis 在 2.6 版本的一个新特性，<strong>用于诊断 Redis 的延迟问题</strong>，其核心原理使用 Unix 系统里面的 setitimer() 函数，设置一个定时器，周期性触发 SIGALRM 信号，触发频率由 server.watchdog_period 字段指定。</p>
+<p>在正常情况下，Redis 会按时执行 serverCron() 函数，其中会调用 watchdogScheduleSignal() 函数重置 watchdog 定时器，也就不会触发 SIGALRM 信号。但是，Redis 主线程被某些操作阻塞，Redis 主线程就无法按时重置定时器，系统就会触发 SIGALRM 信号，Redis 通过捕获这个信号，就能知道自己慢了。</p>
+<p>在实际使用 watchdog 功能的时候，我们可以通过下面的 CONFIG SET 命令，将定时器触发的周期设置为 500 ms，也就是把 server.watchdog_period 字段设置成 500 ms。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">CONFIG SET watchdog-period <span class="number">500</span></span><br></pre></td></tr></table></figure>
+
+<p>另外，CONFIG SET 命令的处理函数还会设置 watchdogSignalHandler() 函数来处理 SIGALRM 信号，这部分逻辑位于 enableWatchdog() 函数之中，感兴趣的小伙伴可以看一下。</p>
+<p>在 watchdogSignalHandler() 函数中，会抓取触发 SIGALRM 信号时 Redis 主线程的堆栈信息，并输出到日志文件中，如果频繁发现在一个位置超时，就可以合理怀疑这部分逻辑或者相关操作导致了 Redis 阻塞，<code>这就和我们 Java 中用 jstack 定位阻塞点的逻辑有点相似</code>。</p>
+<h3 id="更新时钟缓存"><a href="#更新时钟缓存" class="headerlink" title="更新时钟缓存"></a>更新时钟缓存</h3><p>在 Redis 中有很多地方会使用到当前时间戳，比如说，前面分析的命令读取过程，readQueryFromClient() 函数就需要当前时间戳来更新 client-&gt;lastinteraction 字段，记录 client 客户端最后一次与 Redis Server 交互的时间，后续方便做统计之类的操作。</p>
+<p>一般情况下，要获取当前时间戳，需要调用一次系统的 <code>gettimeofday() 函数</code>才能查到当前时间戳，本身这个调用是非常快的，但是在高并发、高 QPS 的场景下，每处理一条命令都要拿多次系统时间的话，这个拿时间戳的耗时就会被放大很多。</p>
+<p>所以，在 redisServer 中使用 ustime、mstime、unixtime 三个字段缓存当前时间戳，这三个字段的单位分别是微秒、毫秒、秒，更新这三个时间缓存字段的逻辑位于 updateCachedTime() 函数中：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">updateCachedTime</span><span class="params">(<span class="type">int</span> update_daylight_info)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 底层调用gettimeofday()函数，获取微秒级别的时间戳</span></span><br><span class="line"></span><br><span class="line">    <span class="type">const</span> <span class="type">long</span> <span class="type">long</span> us = ustime();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 底层会更新redisServer中的ustime、mstime、unixtime三个字段</span></span><br><span class="line"></span><br><span class="line">    updateCachedTimeWithUs(update_daylight_info, us);</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>由于 serverCron() 函数是周期性调用，还可能会出现延迟，所以这三个值并不是绝对准确，它们只会用在日志打印、LRU 时钟更新、决定是否进行持久化、进行某些不精确的统计操作等精度要求不高的地方。对于时间精度要求很高，或者是两次更新函数调用之间的计时，Redis 还是会进行 <code>ustime() 获取精确的时间戳</code>进行计算。比如说，call() 函数里面用来统计一条命令的执行时间，call() 函数的调用是在两次 serverCron() 函数之间完成的，如果用缓存的时间戳，统计出来的命令执行时长始终是 0。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/adc658c760964d26921e386564c23e1f~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>既然说到 call() 函数中对时间戳的依赖，这里就说一下其中的知识点，下面先来看 call() 函数中统计命令耗时的时间戳：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">call</span><span class="params">(client *c, <span class="type">int</span> flags)</span> &#123;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">//省略前面的逻辑</span></span><br><span class="line"></span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    <span class="type">const</span> <span class="type">long</span> <span class="type">long</span> call_timer = ustime(); <span class="comment">// 获取当前系统时间</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (server.fixed_time_expire++ == <span class="number">0</span>) &#123; <span class="comment">// 在开始执行命令之前，先更新缓存的时间戳</span></span><br><span class="line"></span><br><span class="line">        updateCachedTimeWithUs(<span class="number">0</span>,call_timer); </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    monotime monotonic_start = <span class="number">0</span>; <span class="comment">// 如果支持MONOTONIC_CLOCK优化，就用</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (monotonicGetType() == MONOTONIC_CLOCK_HW) </span><br><span class="line"></span><br><span class="line">        monotonic_start = getMonotonicUs();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    c-&gt;cmd-&gt;proc(c); <span class="comment">// 执行命令</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="type">ustime_t</span> duration;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (monotonicGetType() == MONOTONIC_CLOCK_HW) <span class="comment">// 使用MONOTONIC_CLOCK优化</span></span><br><span class="line"></span><br><span class="line">        duration = getMonotonicUs() - monotonic_start;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line"></span><br><span class="line">        duration = ustime() - call_timer;</span><br></pre></td></tr></table></figure>
+
+<p>首先是在命令执行之前，会更新一下缓存的时间，也就是这里看到的 updateCachedTimeWithUs() 调用。其次是一个优化点，像统计命令执行时间这种计算时间差的操作，其实并不需要去拿系统时间戳进行计算，我们也可以拿命令执行前后，相对于程序启动时间点的时间差进行计算，这也是 call() 函数中 MONOTONIC_CLOCK 优化的思路。</p>
+<h3 id="更新执行频率"><a href="#更新执行频率" class="headerlink" title="更新执行频率"></a>更新执行频率</h3><p>在 Redis 2.6 版本中，serverCron() 函数是以固定 100ms 的间隔来执行。但是从 2.8 版本开始，我们可以<code>通过修改 redis.conf 中的 hz 配置项来调整 serverCron() 的执行频率</code>，hz 配置项的默认值是 10，前面说过，serverCron() 函数的返回值是 1000&#x2F;server.hz，那 hz &#x3D; 10 的含义是每秒执行 10 次，每隔 100ms 执行一次。</p>
+<p>另外，我们还可以开启 dynamic_hz 配置项让 Redis 动态调整 server.hz 的值，这里主要是看当前有多少客户端连接到了 Redis Server，也就是 server.clients 列表的长度，客户端越多，server.hz 值越大，也就是执行频率越高。动态调整的 hz 上限值为 500，也就是每秒最多执行 500 次。</p>
+<h3 id="周期性更新监控"><a href="#周期性更新监控" class="headerlink" title="周期性更新监控"></a>周期性更新监控</h3><p>继续往下看 serverCron() 的实现，我们看到 run_with_period(100) 这个宏，按理来说，一段代码写在 serverCron() 函数里面的话，应该和 serverCron() 的执行频率一样。但是，<strong>被 run_with_period 这个宏包裹的代码是个例外，它可以指定自己的触发频率</strong>。</p>
+<p>run_with_period 这个宏的定义如下，其实就是一个<code> if 判断语句</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> run_with_period(_ms_)  </span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((_ms_ &lt;= <span class="number">1000</span>/server.hz) || ---(<span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">         !(server.cronloops%((_ms_)/(<span class="number">1000</span>/server.hz)))) ---(<span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+
+<p>其中，条件（1）是为了处理 serverCron() 执行间隔比 <em>ms</em> 参数还要大的情况。举个例子，server.hz &#x3D; 2，<em>ms</em> &#x3D; 100 时，serverCron() 函数执行间隔为 500ms，所以每次执行 serverCron() 函数的时候，都要执行我们的 run_with_period 代码块。</p>
+<p>条件（2）是为了处理 serverCron() 执行间隔比 <em>ms</em> 参数还要小的情况。其中， server.cronloops 用于记录 serverCron() 函数执行的总次数，举个例子，hz 为 200，<em>ms</em> 为 100 时，serverCron() 函数每 5 ms 执行一次，此时条件（1）不再满足，需要通过条件（2）保证每执行 20 次 serverCron() 函数，才执行一次 run_with_period 代码块。</p>
+<p>serverCron() 在这里会按照至少 100 ms 的时间间隔去更新 <code>STATS_METRIC_COMMAND</code>、<code>STATS_METRIC_NET_INPUT</code>、<code>STATS_METRIC_NET_OUTPUT </code>三个监控值，从名字大概可以看出，它们的含义分别是 Redis 每秒执行的命令数、从网络读取的字节数、向网络发送的字节数。</p>
+<p>在 trackInstantaneousMetric() 函数中可以看到具体的更新逻辑，这里涉及到 redisServer 中用于保存监控的 inst_metric 字段，该字段是个数组，里面有三个元素，分别对应上面三个监控指标。inst_metric 结构体的定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> last_sample_time; <span class="comment">// 上次采样的时间戳</span></span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> last_sample_count;<span class="comment">// 上次采样结果</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 数组长度为16，总共可以存储16次的采样结果</span></span><br><span class="line"></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> samples[STATS_METRIC_SAMPLES]; </span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> idx; <span class="comment">// 用于记录当前使用的samples下标，每次采样完都会加1</span></span><br><span class="line"></span><br><span class="line">&#125; inst_metric[STATS_METRIC_COUNT]; <span class="comment">// 数组长度为3</span></span><br></pre></td></tr></table></figure>
+
+<p>明白了 inst_metric 的结构，再看 trackInstantaneousMetric() 采样算法就会感觉非常简单，这里不再展开分析，感兴趣的小伙伴可以参考代码进行分析。</p>
+<h3 id="更新-LRU-时钟"><a href="#更新-LRU-时钟" class="headerlink" title="更新 LRU 时钟"></a>更新 LRU 时钟</h3><p>Redis 最常见的应用场景就是缓存，我们在使用缓存的时候，一般不会存储 DB 里面全量的数据，而只用于缓存一部分 DB 热点数据；对于非热点数据，需要进行定期删除，防止 Redis 内存被撑爆，也就是我们常说的“内存淘汰”机制。<strong>Redis 提供了多种内存淘汰机制</strong>，比如最常用的 LRU 算法，LRU 算法简单来说，就是淘汰最近最少使用的 Key。</p>
+<p>既然提到了内存淘汰机制，就不得不提 redisObject 结构体里面的 lru 字段（占 24 个 bit 位），Redis 就是通过 lru 字段记录最后一次访问该 Key 的时间戳，这个时间戳是秒级时间戳，194 天溢出一次。在 Redis 每次启动 LRU 算法淘汰 Key 时，会从整个 DB 里面，选出最长时间未被访问的 Key，然后删掉，也就完成内存淘汰的操作了。</p>
+<p>前面说过，在 Redis 这种大流量的场景下，每次访问 Key 的时候，获取系统当前时间戳是个比较耗时的操作，所以，<strong>在 Redis 用 redisServer.lruclock 字段缓存了一个 24 位的时间戳作为 LRU 时钟</strong>，相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 计算24位的LRU时钟，单位是秒，低24位有效，高8位全为0</span></span><br><span class="line"></span><br><span class="line"><span class="type">unsigned</span> <span class="type">int</span> lruclock = getLRUClock();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 更新server.lruclock字段，进行缓存</span></span><br><span class="line"></span><br><span class="line">atomicSet(server.lruclock, lruclock);</span><br></pre></td></tr></table></figure>
+
+<p>接下来，简单看一下 Redis 在执行 LRU 算法进行数据淘汰的时候，是如何使用 lruclock 这个字段的。在 evict.c 中实现了 Redis 数据淘汰的核心逻辑，其中有一个 LRU_CLOCK() 函数用来计算当前的 LRU 时钟：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">int</span> <span class="title function_">LRU_CLOCK</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> lruclock;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="number">1000</span>/server.hz &lt;= <span class="number">1000</span>) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果serverCron()函数一秒至少执行一次，那么server中缓存的</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// lruclock也是秒级的，可以直接使用</span></span><br><span class="line"></span><br><span class="line">        atomicGet(server.lruclock,lruclock);</span><br><span class="line"></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果server中缓存的lruclock做不到秒级，就需要进行系统调用获取</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 当前时间戳，并重新计算24位的秒级LRU时钟</span></span><br><span class="line"></span><br><span class="line">        lruclock = getLRUClock();</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> lruclock;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>LRU_CLOCK() 函数的调用方如下图所示，一个是 lookupKey() 函数，Redis 在查找任意 Key 的时候，都会使用到 lookupKey() 函数，查找成功时就会更新 value 值中的 lru 字段为当前的 LRU 时钟；另一个是 estimateObjectIdleTime() 函数，该函数是在 Redis 进行内存淘汰的过程中计算 value 值空闲了多久，如下图右侧方框内代码所示，这样 Redis 就可以找到最久没被访问的 Key，并淘汰掉。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/51cd690d81ab4fc1860c542e712e02ab~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<h3 id="更新内存使用统计信息"><a href="#更新内存使用统计信息" class="headerlink" title="更新内存使用统计信息"></a>更新内存使用统计信息</h3><p>接下来， serverCron() 函数中会调用 <code>cronUpdateMemoryStats() 函数</code>更新内存使用的相关统计信息，涉及到 redisServer 结构体中的一些字段，我们简单看一下。</p>
+<ul>
+<li><p>stat_peak_memory：记录当前 Redis Server 的内存使用的峰值。</p>
+</li>
+<li><p>cron_malloc_stats：该字段是 malloc_stats 类型，其中记录了常驻内存（process_rss）、已使用内存（zmalloc_used）等统计信息，更新这些信息的逻辑被 run_with_period(100) 包裹，也就是至少 100 ms 才会更新一次。</p>
+</li>
+</ul>
+<p>如果你想查看这些内存统计信息，可以通过 INFO memory 命令进行查看，下面展示了几个返回值的含义：</p>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">Memory</span></span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">used_memory_human是Redis自身能感知到的内存总量</span></span><br><span class="line"></span><br><span class="line">used_memory_human:1.01M </span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">used_memory_rss_human是从操作系统的角度，Redis已分配的内存总量，即常驻内存</span></span><br><span class="line"></span><br><span class="line">used_memory_rss_human:2.70M </span><br><span class="line"><span class="meta prompt_"></span></span><br><span class="line"><span class="meta prompt_"># </span><span class="language-bash">used_memory_peak_huma是Redis的内存消耗峰值</span></span><br><span class="line"></span><br><span class="line">used_memory_peak_human:1.07M </span><br><span class="line"></span><br><span class="line">... ...</span><br></pre></td></tr></table></figure>
+
+<p>INFO memory 命令还有非常多有用的返回值信息，这里不再一一展开分析，感兴趣的小伙伴可以参考<a target="_blank" rel="noopener" href="https://redis.io/commands/info/">官方的介绍文档</a>进行学习。</p>
+<h3 id="处理进程终止信号"><a href="#处理进程终止信号" class="headerlink" title="处理进程终止信号"></a>处理进程终止信号</h3><p>在 initServer() 这个初始化函数中，Redis 会调用 <code>setupSignalHandlers() 函数</code>设置处理 SIGTERM、SIGINT 两个终止信号的函数，核心逻辑如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">setupSignalHandlers</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sigaction</span> <span class="title">act</span>;</span></span><br><span class="line"></span><br><span class="line">    ... ... <span class="comment">// 省略act其他字段的设置逻辑</span></span><br><span class="line"></span><br><span class="line">    act.sa_handler = sigShutdownHandler;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置SIGTERM、SIGINT两个进程终止信号由sigShutdownHandler()函数处理</span></span><br><span class="line"></span><br><span class="line">    sigaction(SIGTERM, &amp;act, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    sigaction(SIGINT, &amp;act, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    ... ... <span class="comment">// 省略其他信号的处理逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在我们收到 SIGTERM 或 SIGINT 信号的时候，sigShutdownHandler() 函数并不会立刻调用 exit() 函数终止进程，而是将 redisServer.shutdown_asap 字段设置为 1；如果连续两次收到两次终止信号（即 shutdown_asap 为 1 时，再次收到 SIGINT 信号），表示用户急切终止 Redis 进程，sigShutdownHandler() 函数才会直接调用 exit() 函数。相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">sigShutdownHandler</span><span class="params">(<span class="type">int</span> sig)</span> &#123;</span><br><span class="line"></span><br><span class="line">   ... <span class="comment">// 省略日志信息</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (server.shutdown_asap &amp;&amp; sig == SIGINT) &#123; <span class="comment">// 连续收到两次终止信号</span></span><br><span class="line"></span><br><span class="line">        rdbRemoveTempFile(getpid(), <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">1</span>); </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他非核心逻辑</span></span><br><span class="line"></span><br><span class="line">    server.shutdown_asap = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我们回到 serverCron() 函数，当检测到 shutdown_asap 字段被设置为 1 时，serverCron() 函数就会开始进入进程终止的清理逻辑，核心片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (server.shutdown_asap &amp;&amp; !isShutdownInitiated()) &#123;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">//省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// prepareForShutdown()函数包含了关闭网络监听、不再接收新的</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 客户端连接、清空缓冲区等一系列操作，这里不一一展开     </span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (prepareForShutdown(shutdownFlags) == C_OK) <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (isShutdownInitiated()) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (server.mstime &gt;= server.shutdown_mstime || isReadyToShutdown()) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (finishShutdown() == C_OK) <span class="built_in">exit</span>(<span class="number">0</span>); <span class="comment">// 针对主从复制以及持久化状态的保存</span></span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="管理-clients-集合"><a href="#管理-clients-集合" class="headerlink" title="管理 clients 集合"></a>管理 clients 集合</h3><p>serverCron() 接下来会调用 <code>clientsCron() 函数</code>对 server.clients 集合中存储的 client 进行一系列处理，每次 clientsCron() 调用并不会处理整个 clients 集合，而是根据 server.hz 指定的频率，对 clients 集合进行<strong>分片处理</strong>，每次至少处理 5 个 client，这样可以尽可能保证一秒内处理完 clients 集合。</p>
+<p>处理每个 client 的时候，clientsCron() 函数会依次从 5 个方面对 client 进行周期性管理，分别对应下图展示的 5 个方法：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/752b164f79e0422c9b19b09e7ff6858f~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>我们展开说一下这 5 个方法的功能。</p>
+<p><strong>第一个，</strong> <strong>clientsCronHandleTimeout() 函数</strong> <strong>。</strong> 它会检查 client.lastinteraction 中记录的最后一次交互时间，如果长时间无交互，Redis Server 会认为客户端超时宕机了，会断开与该客户端的连接，并且会释放对应 client 实例。具体超时时长由 redis.conf 配置文件中的 timeout 配置项指定，对应 redisServer 中的 maxidletime 字段，默认值是 0，也就是没有超时时间的限制。注意，如果这个 client 是用于主从复制、执行阻塞命令或是使用在 PUB&#x2F;SUB 场景下的话，则不会受这个超时时间的影响。</p>
+<p><strong>第二个，</strong> <strong>clientsCronResizeQueryBuffer() 函数</strong> <strong>。</strong> 这个函数的核心目的是减小 client.querybuf 缓冲区的大小，这样可以释放一部分没用的空间。</p>
+<p>有两个场景可以触发 querybuf 缓冲区的缩容：</p>
+<ul>
+<li>一个场景是 querybuf 缓冲区大小超过了 4 K 且客户端空闲 2 秒没有发来任何请求；</li>
+<li>另一个场景是 querybuf 缓冲区大小超过了 32 K 且 querybuf 超出了缓冲区峰值大小的两倍。这里的缓冲区峰值大小由 client.querybuf_peak 字段记录，在每次读取请求的时候，也就是 readQueryFromClient() 函数中更新。</li>
+</ul>
+<p>满足任意一个场景，clientsCronResizeQueryBuffer() 就会释放 querybuf 缓冲区中未使用的空间。</p>
+<p><strong>第三个，</strong> <strong>clientsCronTrackExpansiveClients() 函数</strong> <strong>。</strong> 它的核心逻辑是统计当前 client 中读写缓冲区的最大值，统计结果暂存到 ClientsPeakMemInput、ClientsPeakMemOutput 这个两个全局数组中，这两个数组的长度都固定为 8。在 INFO clients 命令的返回值中看到的 client_recent_max_input_buffer 和 client_recent_max_output_buffer 信息，就是通过这两个全局数组计算得到的。</p>
+<p><strong>第四个，</strong> <strong>updateClientMemUsage() 函数</strong> <strong>。</strong> 其核心逻辑是累计全部 client 占用的内存量，一个 client 占用的内存包括 client 实例本身、querybuf 缓冲区、存储请求解析结果的 argv 数组、用于暂存响应数据的 buf 缓冲区以及 reply 队列等一系列空间的总和。这里会按照 client 的类型分开累计内存占用总量，Redis client 分为 CLIENT_MASTER、CLIENT_TYPE_SLAVE、CLIENT_TYPE_PUBSUB、CLIENT_TYPE_NORMAL 四类，所以存储 client 内存使用总量的 server.stat_clients_type_memory 数组长度也为 4。通过 INFO memory 命令获取的 mem_clients_slaves、mem_clients_normal 值就是通过 server.stat_clients_type_memory 数组的值计算得到的。</p>
+<p>另外，<code>在 Redis 7.0 中新增了一个 Client Evict 的功能</code>。它是一种<strong>保护机制</strong>，当 Redis Server 发现所有 client 消耗的内存超过了某个阈值的时候，就会开始逐出 client，Redis Server 会选择一部分 client，然后断开连接，并且释放掉相应 client 所占的空间，这样的话，就可以保护 Redis Server，防止被异常的 client 打爆。这个具体阈值是通过 redis.conf 中的 maxmemory-clients 项配置的，这个配置项可以有两种配置方式，可以是指定占用空间的空间大小，比如说 1G；也可以指定占用空间的百分比，比如 5%。</p>
+<p>通过前面的介绍我们知道，Redis 会在 redisServer.clients 列表中维护当前连接的全部 client 实例，如果在逐出逻辑中，逐个扫描每个 client 占用的空间，然后再进行筛选和逐出，是非常耗时的。</p>
+<p>为了解决这个问题，Redis 会在 updateClientMemUsage() 里面，按照占用空间的大小，把 client 分为 19 个桶，分别是 (0, 32K]、(32K, 64K]、[64K, 128K]、…、(2G, 4G]，也就是说，一个 client 实例占用了 48K 的内存空间，就会放到 (32K, 64K] 这个桶里面。在后续需要逐出的时候，Redis 就可以直接按照规则从相应的桶里面获取相应大小的 client 进行逐出。这里的每个桶都是一个 clientMemUsageBucket 对象，它里面维护了两个字段，一个是落在这个桶里面的 client 列表，另一个是这个桶内全部 client 所占空间的总和。</p>
+<blockquote>
+<p>具体的逐出逻辑和方案小伙伴们可以参考<a target="_blank" rel="noopener" href="https://github.com/redis/redis/pull/8687">这个 PR</a> 以及<a target="_blank" rel="noopener" href="https://redis.io/docs/reference/clients/#client-eviction">这个文档</a>。</p>
+</blockquote>
+<p><strong>第五个，</strong> <strong>closeClientOnOutputBufferLimitReached() 函数</strong> <strong>。</strong> 核心逻辑是检查当前 client 的写回缓冲区是否超过 soft 限制和 hard 限制。</p>
+<p>如果超过了 hard 上限值，client 直接就会被关闭；如果第一次超过 soft 上限值，Redis 会先对 client 打上标记，其实就是在 client.obuf_soft_limit_reached_time 字段中记录这次超过 soft 限制的时间戳，而不是立刻关闭 client；如果发现 client 长时间超过 soft 上限值，才会关闭 client。</p>
+<p>小伙伴们如果对这段检查逻辑感兴趣，可以直接去查看 checkClientOutputBufferLimits() 函数的代码。</p>
+<h3 id="管理-DB"><a href="#管理-DB" class="headerlink" title="管理 DB"></a>管理 DB</h3><p>完成 client 的管理之后，serverCron() 会调用 <code>databasesCron() 函数</code>完成对数据库的管理，其中主要做两件事。</p>
+<ul>
+<li><p>第一件事是通过 activeExpireCycle() 函数进行清理过期的 Key。这个逻辑比较重要，我们在后面会单独用一节的内容来介绍 Key 到期清理的逻辑。</p>
+</li>
+<li><p>第二件事是通过 tryResizeHashTables() 函数尝试调整 DB 的大小，然后再通过 incrementallyRehash() 函数进行渐进式 rehash。这里无论是调整 DB 大小还是渐进式 rehash，都是调整底层的两个 dict 实例：一个是真正存储的 dict 实例，也就是 redisDb.dict；另一个是存储 Key 过期时间的 dict 实例，也就是 redisDb.expires。（Dict 实例的扩缩容以及渐进式 rehash 的逻辑，我们在<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529534613487631">第 21 讲《数据结构篇：Hash 核心方法剖析》</a>中已经详细分析过了，这里就不再重复了。）</p>
+</li>
+</ul>
+<h3 id="其他操作"><a href="#其他操作" class="headerlink" title="其他操作"></a>其他操作</h3><p>除了上述操作之外，serverCron() 函数还会执行下面的操作。</p>
+<ul>
+<li><p>一些持久化的相关操作，例如，启动子进程完成 AOF、RDB 的写入。</p>
+</li>
+<li><p>当 Redis 处于主从模式时，会通过 replicationCron() 函数执行一些主从复制相关的逻辑。</p>
+</li>
+<li><p>当 Redis 处于集群模式中，会通过 clusterCron() 函数执行一些 Redis 集群相关的逻辑。</p>
+</li>
+<li><p>当 Redis 处于哨兵模式时，会通过 sentinelTimer() 函数执行哨兵相关的逻辑。</p>
+</li>
+<li><p>调用 stopThreadedIOIfNeeded() 函数检查是否要暂停 IO 线程。这里会检查 server.clients_pending_write 字段长度，如果该列表长度很短，表示没有足够多的 client 等待返回数据，serverCron() 会通过 stopThreadedIO() 函数将 io_threads_active 设置为 0，暂停 IO 线程，IO 线程就自旋等待了。后续如果需要 IO 线程来工作的时候，Redis 主线程会在 handleClientsWithPendingWritesUsingThreads() 重新将 io_threads_active 设置为 1，启动 IO 线程，以 IO 多线程的模式读写数据。</p>
+</li>
+<li><p>递增 server.cronloops 字段，统计 serverCron() 函数的总次数。</p>
+</li>
+</ul>
+<p>上述这些处理逻辑我们将在后续的专题中逐个展开详述，这里不再完全展开详述了，你先了解个大概，有个总体的轮廓就行。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们重点介绍了 Redis 中最重要的时间事件，它会定期调用 serverCron() 函数。在 serverCron() 函数中，会完成一系列关键操作，例如：</p>
+<ul>
+<li>更新时钟缓存，这样可以减少进行系统调用的次数；</li>
+<li>更新监控信息和统计信息，用于监控 Redis 的运行状态和一些统计指标；</li>
+<li>更新 LRU 时钟，在后续介绍的 LRU 内存淘汰机制中，将依赖这个 LRU 时钟对 Key 进行淘汰；</li>
+<li>管理 client 集合，其中会断开无效的 client 连接、释放无用的缓冲区。</li>
+</ul>
+<p>下一节，我们将介绍 Redis Key 过期的实现机制。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC33%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC33%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E6%97%B6%E9%97%B4%E4%BA%8B%E4%BB%B6%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC32%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9A%E5%91%BD%E4%BB%A4%E5%93%8D%E5%BA%94%E7%9A%84%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC25%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5Rax%E6%A0%91%E5%AE%9E%E7%8E%B0/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#serverCron-%E5%87%BD%E6%95%B0"><span class="toc-number">1.</span> <span class="toc-text">serverCron() 函数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8D%E7%BD%AE-watchdog-%E5%AE%9A%E6%97%B6%E5%99%A8"><span class="toc-number">1.1.</span> <span class="toc-text">重置 watchdog 定时器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E6%97%B6%E9%92%9F%E7%BC%93%E5%AD%98"><span class="toc-number">1.2.</span> <span class="toc-text">更新时钟缓存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E6%89%A7%E8%A1%8C%E9%A2%91%E7%8E%87"><span class="toc-number">1.3.</span> <span class="toc-text">更新执行频率</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%91%A8%E6%9C%9F%E6%80%A7%E6%9B%B4%E6%96%B0%E7%9B%91%E6%8E%A7"><span class="toc-number">1.4.</span> <span class="toc-text">周期性更新监控</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0-LRU-%E6%97%B6%E9%92%9F"><span class="toc-number">1.5.</span> <span class="toc-text">更新 LRU 时钟</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E5%86%85%E5%AD%98%E4%BD%BF%E7%94%A8%E7%BB%9F%E8%AE%A1%E4%BF%A1%E6%81%AF"><span class="toc-number">1.6.</span> <span class="toc-text">更新内存使用统计信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%A4%84%E7%90%86%E8%BF%9B%E7%A8%8B%E7%BB%88%E6%AD%A2%E4%BF%A1%E5%8F%B7"><span class="toc-number">1.7.</span> <span class="toc-text">处理进程终止信号</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E7%90%86-clients-%E9%9B%86%E5%90%88"><span class="toc-number">1.8.</span> <span class="toc-text">管理 clients 集合</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AE%A1%E7%90%86-DB"><span class="toc-number">1.9.</span> <span class="toc-text">管理 DB</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E6%93%8D%E4%BD%9C"><span class="toc-number">1.10.</span> <span class="toc-text">其他操作</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">2.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

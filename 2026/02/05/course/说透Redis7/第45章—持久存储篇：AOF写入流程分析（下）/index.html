@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="通过上一节的介绍，我们了解了 AOF 日志从生产到写入缓冲区的过程，也分析了 AOF 日志的格式，这里有两个额外的知识点需要补充说明一下。 第一个点是，当执行的是 EXPIRE 这种设置过期时间的命令，如果 AOF 是把 EXPIRE 指定的过期时间记录下来，在回放的时候，是不是就给 Key 设置了一个错误的过期时间呢？这个问题的答案需要小伙伴们回顾一下第 36 讲《命令解析篇：通用命令与 Str">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC45%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOF%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%8B%EF%BC%89/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="通过上一节的介绍，我们了解了 AOF 日志从生产到写入缓冲区的过程，也分析了 AOF 日志的格式，这里有两个额外的知识点需要补充说明一下。 第一个点是，当执行的是 EXPIRE 这种设置过期时间的命令，如果 AOF 是把 EXPIRE 指定的过期时间记录下来，在回放的时候，是不是就给 Key 设置了一个错误的过期时间呢？这个问题的答案需要小伙伴们回顾一下第 36 讲《命令解析篇：通用命令与 Str">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC45%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOF%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%8B%EF%BC%89/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.709Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.709Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>通过上一节的介绍，我们了解了 AOF 日志从生产到写入缓冲区的过程，也分析了 AOF 日志的格式，这里有两个额外的知识点需要补充说明一下。</p>
+<p>第一个点是，当执行的是 EXPIRE 这种设置过期时间的命令，如果 AOF 是把 EXPIRE 指定的过期时间记录下来，在回放的时候，是不是就给 Key 设置了一个错误的过期时间呢？这个问题的答案需要小伙伴们回顾一下<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529981898260480">第 36 讲《命令解析篇：通用命令与 String 命令实现解析》</a>中介绍的，expireGenericCommand() 函数中的一个细节，在设置完 Key 的过期时间之后，expireGenericCommand() 就已经将 client-&gt;argv 中记录的命令和参数进行了改写，它会将命令改成 PEXPIREAT 命令，并将过期时间归一化成毫秒级时间戳。同理， SET…EX|PX 这个带过期时间的复合命令，也会对命令进行改写，也是统一改写 SET…PXAT，过期时间归一化成毫秒级时间戳。</p>
+<p>第二个点是，在介绍 Key 过期以及内存淘汰的时候，我们知道这两个功能是会将一部分 Key 删除掉的，这个时候需要产生 DEL 或者 UNLINK 命令对应的 AOF 日志，如下图的调用栈所示，expireIfNeeded()、activeExpireCycle() 和 performEvictions() 这三个函数都会调用上一讲介绍的 alsoPropagate()、 propagatePendingCommands() 函数记录 AOF 日志。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/359a9d87a0cf49f492cdcea765e8137e~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>这两个功能可能一次过期多个 Key，这就会导致 redisOp 数组中出现多条命令的情况，Redis 通过 redisServer.propagate_no_multi 字段，区分这两种场景与事务场景。如下图调用栈所示，Key 过期或者进行内存淘汰的时候，会将 propagate_no_multi 设置成 1，从而告诉 propagatePendingCommands() 函数此次的多条命令不用事务包裹。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7d5a3fd793d9440496b4cb6c4833d246~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>补充完上一节的内容之后，我们这一节就继续看 <code>AOF 日志从缓冲区写到文件中</code>的过程。</p>
+<h2 id="写入-AOF-文件与刷盘策略"><a href="#写入-AOF-文件与刷盘策略" class="headerlink" title="写入 AOF 文件与刷盘策略"></a>写入 AOF 文件与刷盘策略</h2><p>将 redisServer.aof_buf 缓冲区中的 AOF 日志写入到 AOF 文件的核心逻辑位于 flushAppendOnlyFile() 函数中，下面的调用栈展示了它的调用位置：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0a122ad71d2f4871a0f37f4c26b163db~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>我们先来看 beforeSleep() 中的调用，关键代码如下所示，从这段代码我们知道，在 Redis 给客户端返回响应之前，也就是 handleClientsWithPendingWritesUsingThreads() 这个调用之前，会先调用 flushAppendOnlyFile() 函数，把 AOF 日志写入到磁盘。这也符合我们的认知，如果两者调用顺序发生调换，就可能出现响应已经返回，但写 AOF 日志失败这种不一致的问题。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">beforeSleep</span><span class="params">(<span class="keyword">struct</span> aeEventLoop *eventLoop)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="comment">// 开启了AOF写入配置</span></span><br><span class="line">    <span class="keyword">if</span> (server.aof_state == AOF_ON || server.aof_state == AOF_WAIT_REWRITE)</span><br><span class="line">        flushAppendOnlyFile(<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 在返回响应之前，会调用flushAppendOnlyFile()函数将AOF落盘</span></span><br><span class="line">    handleClientsWithPendingWritesUsingThreads();</span><br><span class="line">    ... <span class="comment">// 省略其他调用</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>flushAppendOnlyFile() 函数这里说的 “AOF 写入文件” 是指通过 write() 系统调用写文件，这些写入的 AOF 日志并不是立刻就落到磁盘上，而是会先落到内核缓冲区，然后由操作系统选择合适的时机刷盘，或者我们主动调用 <code>fflush</code>、<code>fsync</code> 进行刷盘，才能将数据真正落到磁盘上。</p>
+<p>在 redis.conf 文件中，有一个 appendfsync 配置项，它用来决定 AOF 刷盘的策略，可选值有三个。</p>
+<ul>
+<li><p><code>no 策略</code>：不会主动执行 fsync() 进行刷盘，而是依赖操作系统自动刷盘的机制。使用该策略的风险是服务宕机时，部分 AOF 日志还存储在系统缓冲区中，而未真正落盘，导致 AOF 日志丢失；好处就是省去的 fsync() 函数调用，写入 AOF 的效率会高一些。</p>
+</li>
+<li><p><code>always 策略</code>：每次写入 AOF 的时候，都会调用 fsync() 进行刷盘。使用该策略的缺点就是频繁调用 fsync() 刷盘会降低 Redis 性能；好处就是不会因为系统缓冲区而造成 AOF 日志丢失。</p>
+</li>
+<li><p><code>everysec 策略</code>：每秒执行一次 fsync() 进行刷盘。该策略是上述两种策略的折中，最多丢失一秒的 AOF 日志，调用 fsync() 频率也不是很高，性能比 always 策略要好，该策略也是 AOF 的<code>默认刷盘策略</code>。在后面展开介绍 everysec 策略的实现时会发现，它真正的刷盘操作是在<strong>后台线程</strong>中完成的，而 always 策略是在主线程中进行 fsync() 的，这也是 everysec 策略性能比较好的原因之一。</p>
+</li>
+</ul>
+<p>既然说到 fsync() 刷盘的问题，我们就再展开说说 redisServer 中与刷盘相关的字段，这些字段在下面要分析的 flushAppendOnlyFile() 函数中也有应用。</p>
+<ul>
+<li><p>aof_fsync_offset：记录了当前已经刷到磁盘的 AOF 日志偏移量（单位是字节）。</p>
+</li>
+<li><p>aof_current_size：记录了通过 write() 写入的 AOF 日志量（单位是字节）。如果 aof_fsync_offset 落后于 aof_current_size，就说明有一部分 AOF 日志可能残留在系统缓冲区中，没有真正写到磁盘上，需要进行一次刷盘。</p>
+</li>
+<li><p>aof_last_fsync：记录了最后一次调用 fsync() 刷盘的时间戳。</p>
+</li>
+</ul>
+<h2 id="always-刷盘策略解析"><a href="#always-刷盘策略解析" class="headerlink" title="always 刷盘策略解析"></a>always 刷盘策略解析</h2><p>了解了上述基础知识之后，下面我们来梳理一下 always 策略下 flushAppendOnlyFile() 函数的执行轨迹：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/32cbe8f2cc8647979b837c855760a162~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里的 aofWrite() 函数中，实际上就是通过循环执行 write() 这个系统调用，把 redisServer.aof_buf 缓冲区中的日志写入到 AOF 文件中，退出循环的条件有两个：一个是 aof_buf 缓冲区中的数据全部写入完了，另一个是写入发生失败。</p>
+<p>aofWrite() 函数执行完之后，Redis 会检查是不是已经把 aof_buf 缓冲区中的全部数据都写入了，如果没有的话，直接就证明磁盘发生了故障，比如，磁盘写满了。这个时候，命令响应已经在 client-&gt;buf 中了，相应的数据修改也已经无法回滚了，为了保持一致性，Redis 会直接打印日志并退出进程。</p>
+<p>aofWrite() 函数正常写入 aof_buf 缓冲区的全部数据之后，Redis 会检查 aof_buf 缓冲区的总长度，尝试对其进行复用。但如果 aof_buf 占的空间太大，比如，长度超过 4000 个字节，Redis 会认为后续不会频繁出现这么多 AOF 日志阻塞在 aof_buf 缓冲区的情况，则不会复用这个 sds 实例，而是将其释放掉重新创建。如果决定复用，Redis 会清空 aof_buf 缓冲区中的数据，等待下次 AOF 日志写入缓冲区。</p>
+<p>在 always 策略的时候，在写入完成后立即刷盘，这里使用的是 redis_fsync() 这个宏，它实际调用的是 fdatasync() 函数，而不是 fsync()。这是因为 fsync() 函数除了将文件内容进行刷盘之外，还会将文件的描述信息刷盘，例如，文件大小、文件修改时间等等，通常文件元数据和文件的内容数据存放在磁盘的不同位置，所以 fsync() 实际上执行了至少两次 IO，而且有的文件系统修改文件元数据是串行的，修改起来会很慢。而 fdatasync() 只对文件内容刷盘，不会去修改文件元数据，性能上就有所提升。</p>
+<h2 id="everysec-刷盘策略解析"><a href="#everysec-刷盘策略解析" class="headerlink" title="everysec 刷盘策略解析"></a>everysec 刷盘策略解析</h2><p>下面再来看 flushAppendOnlyFile() 函数在 everysec 策略下的执行流程：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6005b03c9cd540209e587c579b2df8be~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>首先在 aof_buf 缓冲区为空的时候，会检查当前是否需要执行刷盘操作，涉及到 4 方面的检查，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (server.aof_fsync == AOF_FSYNC_EVERYSEC &amp;&amp; <span class="comment">// 当前是everysec策略</span></span><br><span class="line">    server.aof_fsync_offset != server.aof_current_size &amp;&amp; <span class="comment">// 有待刷盘的数据</span></span><br><span class="line">    server.unixtime &gt; server.aof_last_fsync &amp;&amp; <span class="comment">// 距离上次刷盘时间超过1s</span></span><br><span class="line">    !(sync_in_progress = aofFsyncInProgress())&#123; <span class="comment">// 后台线程中没有待执行的刷盘任务</span></span><br><span class="line">    <span class="keyword">goto</span> try_fsync; <span class="comment">// 向后台线程提交刷盘任务</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>在 everysec 策略下，如果是 aof_buf 缓冲区中有数据等待写入，但是，后台线程还有待处理的刷盘任务没执行完，此次 AOF 写文件的操作可以进行延迟，但是延迟时间不能超过 2 秒。在确定要延迟写入 AOF 文件的时候，flushAppendOnlyFile() 函数会在 redisServer.aof_flush_postponed_start 字段中记录当前时间戳，后续再次尝试写入 AOF 文件的时候，就会通过该字段判断是否超过 2 秒这个上限值。如果超过 2 秒，就会继续执行后续的写入逻辑。如果未超过 2 秒，就结束此次 flushAppendOnlyFile() 调用，等待调用的时候，再检查后台刷盘任务的状态。</p>
+<p>接下来，就是我们熟悉的 aofWrite() 写入 AOF 文件的循环逻辑，这里不再重复。写入完成之后，还是会检查 aof_buf 缓冲区中的数据是否已经完全写入到 AOF 文件中了，如果没有完全写入成功，everysec 策略不会像 always 策略那样立即终止进程，而是有一定的容忍度，这里会将 server.aof_last_write_status 字段设置为 C_ERR 状态，等待下次调用 flushAppendOnlyFile() 函数重试。</p>
+<p>我们前面提到，在 serverCron() 中会定时执行 flushAppendOnlyFile() 函数，相关的调用位置如下图所示，很明显，第一个调用点判断了 aof_flush_postponed_start 字段不为 0，是为了进行延迟写入；第二个调用点判断了 aof_last_write_status 字段的值，是为了写入失败的重试。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/58b11d74917f455e92320b74c6deecc3~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>当 redisServer.aof_last_write_status 被设置为 C_ERR 时，除了可以触发 serverCron() 中的写入失败重试逻辑之外，还会阻塞后续的写命令，小伙伴们可以关注一下 writeCommandsDeniedByDiskError() 函数，它里面会检查 RDB 写入状态、AOF 写入状态以及 AOF 后台线程的刷盘状态，这三个状态对应 redisServer 中的 lastbgsave_status、aof_last_write_status、aof_last_write_status 三个字段，但凡有一个状态不正常，writeCommandsDeniedByDiskError() 函数就会返回异常。</p>
+<p>调用 writeCommandsDeniedByDiskError() 函数的地方是 processCommand()，它在收到异常的时候，就会拒绝后续收到的 Redis 命令，相关的片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommand</span><span class="params">(client *c)</span>&#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="comment">// 通过writeCommandsDeniedByDiskError()函数检查上述三种持久化状态</span></span><br><span class="line">    <span class="type">int</span> deny_write_type = writeCommandsDeniedByDiskError();</span><br><span class="line">    <span class="keyword">if</span> (deny_write_type != DISK_ERROR_TYPE_NONE </span><br><span class="line">        &amp;&amp; (is_write_command || c-&gt;cmd-&gt;proc == pingCommand)) <span class="comment">// 必须是写命令</span></span><br><span class="line">    &#123; </span><br><span class="line">        ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">        sds err = writeCommandsGetDiskErrorMessage(deny_write_type);</span><br><span class="line">        rejectCommandSds(c, err);</span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">    ...<span class="comment">// 省略后续调用call()函数的逻辑</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 下面是writeCommandsGetDiskErrorMessage()函数的具体实现</span></span><br><span class="line">sds <span class="title function_">writeCommandsGetDiskErrorMessage</span><span class="params">(<span class="type">int</span> error_code)</span> &#123;</span><br><span class="line">    sds ret = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">if</span> (error_code == DISK_ERROR_TYPE_RDB) &#123;</span><br><span class="line">        ret = sdsdup(shared.bgsaveerr-&gt;ptr); <span class="comment">// 因为RDB写入失败而被拒绝</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// 因AOF写入失败或AOF后台线程刷盘是失败而拒绝</span></span><br><span class="line">        ret = sdscatfmt(sdsempty(),</span><br><span class="line">                <span class="string">&quot;-MISCONF Errors writing to the AOF file: %s&quot;</span>,</span><br><span class="line">                strerror(server.aof_last_write_errno));</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>介绍完各种写入异常的分支逻辑以及关联的处理逻辑之后，最后来看 everysec 策略下，写入正常的逻辑：在 aofWrite() 函数正常写入之后，与 always 策略相同，会清空 aof_buf 缓冲区并尝试复用，然后更新 aof_current_size 字段。注意，这里来到了 everysec 策略的关键，也是 everysec 策略与 always 策略的不同之处，<strong>everysec 策略的刷盘操作是通过 aof_background_fsync() 函数提交到后台线程执行的，而不是由主线程立即执行的</strong>。刷盘任务每秒最多提交一个，而且有堆积的刷盘任务的时候，也不会继续提交新任务，而是直接将两次刷盘<code>合并</code>，相关的代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">flushAppendOnlyFile</span><span class="params">(<span class="type">int</span> force)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他的</span></span><br><span class="line">    <span class="keyword">if</span> ((server.aof_fsync == AOF_FSYNC_EVERYSEC &amp;&amp; <span class="comment">// 当前是everysec策略</span></span><br><span class="line">            server.unixtime &gt; server.aof_last_fsync)) <span class="comment">// 上次刷盘距今至少1秒</span></span><br><span class="line">     &#123;</span><br><span class="line">        <span class="keyword">if</span> (!sync_in_progress) &#123; <span class="comment">// 确定当前没有后台刷盘任务</span></span><br><span class="line">            aof_background_fsync(server.aof_fd); <span class="comment">// 提交后台刷盘任务</span></span><br><span class="line">            server.aof_fsync_offset = server.aof_current_size;</span><br><span class="line">        &#125;</span><br><span class="line">        server.aof_last_fsync = server.unixtime; <span class="comment">// 更新最新的刷盘时间</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>这里我们简单介绍一下后台刷盘任务的实现。在<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147529943709122600">第 34 讲《内核解析篇：Redis Key 的过期与删除》</a>中介绍 lazy free 特性的时候，我们已经详细分析过后台线程涉及到的基础知识，例如，bio_job 结构体、后台线程的启动和执行流程以及三种后台线程类型，其中就有一个 BIO_AOF_FSYNC 类型的后台线程，这里的 aof_background_fsync() 函数就是向 BIO_AOF_FSYNC 后台线程对应的任务队列，也就是 bio_jobs[BIO_AOF_FSYNC] 队列中，<strong>提交刷盘任务</strong>，也就是一个 bio_job 实例，这个实例中的 fd 字段，记录了需要刷盘的文件描述符。</p>
+<p>任务提交之后，BIO_AOF_FSYNC 后台线程会从 bio_jobs[BIO_AOF_FSYNC] 任务队列中读到任务，然后开始执行前文介绍的 redis_fsync() 方法进行刷盘，相关代码片段位于 <strong>bioProcessBackgroundJobs() 函数</strong>中，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> *<span class="title function_">bioProcessBackgroundJobs</span><span class="params">(<span class="type">void</span> *arg)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="keyword">if</span> (type == BIO_AOF_FSYNC) &#123;</span><br><span class="line">        <span class="keyword">if</span> (redis_fsync(job-&gt;fd) == <span class="number">-1</span> &amp;&amp; <span class="comment">// 调用redis_fsync进行刷盘</span></span><br><span class="line">            errno != EBADF &amp;&amp; errno != EINVAL)</span><br><span class="line">        &#123;</span><br><span class="line">            <span class="type">int</span> last_status;</span><br><span class="line">            atomicGet(server.aof_bio_fsync_status,last_status);</span><br><span class="line">            <span class="comment">// 如果刷盘异常，会更新redisServer.aof_bio_fsync_status字段</span></span><br><span class="line">            atomicSet(server.aof_bio_fsync_status,C_ERR);</span><br><span class="line">            atomicSet(server.aof_bio_fsync_errno,errno);</span><br><span class="line">            <span class="keyword">if</span> (last_status == C_OK) &#123;</span><br><span class="line">                serverLog(LL_WARNING, <span class="string">&quot;Fail to fsync the AOF file: %s&quot;</span>,strerror(errno));</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123; <span class="comment">// 刷盘成功</span></span><br><span class="line">            atomicSet(server.aof_bio_fsync_status,C_OK);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>我们看到后台刷盘线程会去更新 redisServer.aof_bio_fsync_status 字段来记录刷盘状态，但是注意，我们前面说过，在主线程执行命令之前，会调用 writeCommandsDeniedByDiskError() 函数读取该字段确认刷盘状态，这样的话，该字段就可能会被并发操作，所以这里修改和读取该字段使用 atomicSet、atomicGet 等<code>原子操作</code>完成。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们重点介绍了 Redis AOF 日志写入文件的核心原理和重点策略。首先，我们讲解了 Redis AOF 日志刷盘的相关配置以及时机，说明了三种刷盘策略的配置以及含义。接下来，分析了 always 刷盘策略的核心原理以及 everysec 刷盘策略的核心原理。</p>
+<p>下一节，我们将继续介绍 AOF 中另一个非常重要的机制 —— AOF Rewrite 机制的实现原理。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC45%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOF%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%8B%EF%BC%89/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC45%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOF%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%8B%EF%BC%89/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC44%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOF%E5%86%99%E5%85%A5%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90%EF%BC%88%E4%B8%8A%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC47%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%E5%89%96%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%85%A5-AOF-%E6%96%87%E4%BB%B6%E4%B8%8E%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5"><span class="toc-number">1.</span> <span class="toc-text">写入 AOF 文件与刷盘策略</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#always-%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E8%A7%A3%E6%9E%90"><span class="toc-number">2.</span> <span class="toc-text">always 刷盘策略解析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#everysec-%E5%88%B7%E7%9B%98%E7%AD%96%E7%95%A5%E8%A7%A3%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">everysec 刷盘策略解析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

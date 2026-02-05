@@ -1,0 +1,309 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Redis 五大数据类型中有一种叫作 Sorted Set （有序集合）的类型，也经常被简称为“ZSet”。 ZSet 与我们常见的 Set 有一些类似，比如，Set 和 ZSet 里面存储的元素都不能重复。但是， ZSet 中的每个元素都会关联一个 double 类型的分数值（也称为 score），所有元素会按照 score 值的大小进行排序，这就是说 ZSet 是一个有序集合的原因。 在本节中">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC24%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9Askiplist%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="Redis 五大数据类型中有一种叫作 Sorted Set （有序集合）的类型，也经常被简称为“ZSet”。 ZSet 与我们常见的 Set 有一些类似，比如，Set 和 ZSet 里面存储的元素都不能重复。但是， ZSet 中的每个元素都会关联一个 double 类型的分数值（也称为 score），所有元素会按照 score 值的大小进行排序，这就是说 ZSet 是一个有序集合的原因。 在本节中">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.705Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.705Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC24%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9Askiplist%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.705Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.705Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>Redis 五大数据类型中有一种叫作 Sorted Set （有序集合）的类型，也经常被简称为“ZSet”。</p>
+<p>ZSet 与我们常见的 Set 有一些类似，比如，Set 和 ZSet 里面存储的元素都不能重复。但是， ZSet 中的每个元素都会关联一个 double 类型的分数值（也称为 score），所有元素会按照 score 值的大小进行排序，这就是说 <code>ZSet 是一个有序集合</code>的原因。</p>
+<p>在本节中，我们就从 ZSet 的底层存储开始，一步步抽丝剥茧，详细分析 Redis 中 ZSet 的核心原理和实现。</p>
+<h2 id="skiplist-基本概念"><a href="#skiplist-基本概念" class="headerlink" title="skiplist 基本概念"></a>skiplist 基本概念</h2><p><strong>Redis 底层使用</strong><code>跳跃表（skiplist） </code><strong>这一数据结构作为 ZSet 的底层核心存储</strong>，当然，在一定条件下，Redis 会用 listpack 来优化 ZSet，在后面介绍 redisObject 的时候我们会单独拿出一节来详细讲解各个数据结构底层的这种优化。</p>
+<p><strong>skiplist 是基于随机算法的一种有序链表</strong>，其查询效率与红黑树的查询效率差不多，都是 O(logn)，但是 skiplist 的结构远比复杂的红黑树简单很多。下面我们就深入介绍一下 skiplist 的结构。</p>
+<p>我们常见的有序链表结构如下图所示，每个节点里面有两个关键部分，一个是存放的数据，还有一个是指向下一个节点的 next 指针。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/97d7ca6af97a41e597894001f2ad2a11~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>假设要在这个链表里面查询 48 这个节点，我们需要从 header 节点开始向后遍历，每遍历到一个节点，都要比较节点存储的值与 48 是否一致。最差的情况就是遍历完整个链表，时间复杂度也就是 O(N)。</p>
+<p>skiplist 在普通有序链表的基础之上，添加多层有序链表，如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f725a7067553425bbc21a6290bdfb2cc~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>使用 skiplist 查找数据的时候，会先从最高层，也就是上图中的 level 2，开始向后遍历，这里发现 level 2 层小于 48 的最大节点是 18 节点，那么向下一层来到 level 1，继续从 18 节点向后遍历。在 level 1 层中发现小于 48 的最大节点是 35，那么再向下一层来到 level 0，继续从 35 节点向后迭代，最终找到 48 这个目标节点。</p>
+<p>整个查找路径如下图红色箭头所示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/40d9ed287e78482e90a7977626ee0e22~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>通过这个示例，我们可以体会到使用 skiplist 在结构上的特点：<strong>维护多层有序链表的索引，越往上层索引越稀疏</strong>，比如，level 2 就比 level 1 稀疏。在查找过程中，这些稀疏索引可以帮助我们跳过一些不必要的匹配操作。在利用 skiplist 这种稀疏索引进行查找的时候，我们需要使用到 cur 和 next 两个指针，当 next 节点的值比目标值大或是迭代到 NULL 时，则下降一层继续从 cur 开始向后遍历，直至找到目标节点或者返回 NULL。</p>
+<h2 id="zskiplist-核心实现"><a href="#zskiplist-核心实现" class="headerlink" title="zskiplist 核心实现"></a>zskiplist 核心实现</h2><p>了解了 skiplist 的基本概念之后，我们再来深入分析一下 Redis 对 skiplist 的实现。其中，<strong>最核心、最基础的就是 zskiplistNode 结构体</strong>，其定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> &#123;</span></span><br><span class="line"></span><br><span class="line">  sds ele; <span class="comment">// 存储字符串类型的数据</span></span><br><span class="line"></span><br><span class="line">  <span class="type">double</span> score; <span class="comment">// 用来排序的分数</span></span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">backward</span>;</span> <span class="comment">// 指向当前层的前一个节点</span></span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistLevel</span> &#123;</span></span><br><span class="line"></span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">forward</span>;</span> <span class="comment">// 指向当前层的后一个节点</span></span><br><span class="line"></span><br><span class="line">	<span class="type">unsigned</span> <span class="type">long</span> span; <span class="comment">// 记录了当前层里面，我们按照forward指针向后走一步，</span></span><br><span class="line"></span><br><span class="line">                            <span class="comment">// 能扫过多少个元素</span></span><br><span class="line"></span><br><span class="line">  &#125; level[]; <span class="comment">// skiplist中的层节点</span></span><br><span class="line"></span><br><span class="line">&#125; zskiplistNode;</span><br></pre></td></tr></table></figure>
+
+<p>zskiplistNode 中的 ele、score 字段都比较好理解，存的分别是元素值和分数值，backward 这个指针说明 Redis 的 skiplist 实现在 level 0 层实际是个双向链表。除此之外，zskiplistNode 还内嵌了一个 zskiplistLevel 结构体（即 level 柔性数组）来抽象层 skiplist 的层级，level 数组的下标索引标识了当前是第几层的 zskiplistNode 节点。</p>
+<p>下图展示了单个 zskiplistNode 的结构示意图：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ca97e979a2be4a7d9c63fa75c488d7e6~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>分析完 Redis 对单个 skiplist 节点的定义之后，我们再来看整个 skiplist 的实现，<strong>Redis 定义了一个 zskiplist 结构体来抽象 skiplist 这一数据结构</strong>，其具体定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">zskiplist</span> &#123;</span></span><br><span class="line"></span><br><span class="line">  <span class="class"><span class="keyword">struct</span> <span class="title">zskiplistNode</span> *<span class="title">header</span>, *<span class="title">tail</span>;</span> <span class="comment">// 指向skiplist结构的首节点和尾结点</span></span><br><span class="line"></span><br><span class="line">  <span class="type">unsigned</span> <span class="type">long</span> length; <span class="comment">// 当前zskiplist level0的节点个数，也是其中存储元素的个数</span></span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> level; <span class="comment">// 当前zskiplist的层级数</span></span><br><span class="line"></span><br><span class="line">&#125; zskiplist;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="zskiplist-核心函数"><a href="#zskiplist-核心函数" class="headerlink" title="zskiplist 核心函数"></a>zskiplist 核心函数</h2><p>了解了 Redis 对 skiplist 这一数据结构的抽象之后，下面就要来关注怎么操作 skiplist 了。</p>
+<h3 id="创建-zskiplist"><a href="#创建-zskiplist" class="headerlink" title="创建 zskiplist"></a>创建 zskiplist</h3><p>首先来看 Redis 是如何创建一个 zskiplist 实例的。我们来看 t_zset.c 文件中的 <code>zslCreate() 函数</code>，其核心逻辑是<strong>初始化 zskiplist 实例以及一个空的头节点</strong>，具体实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">zskiplist *<span class="title function_">zslCreate</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line"></span><br><span class="line">    zskiplist *zsl;</span><br><span class="line"></span><br><span class="line">    zsl = zmalloc(<span class="keyword">sizeof</span>(*zsl)); <span class="comment">// 申请内存空间</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;level = <span class="number">1</span>; <span class="comment">// level设置为1</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;length = <span class="number">0</span>; <span class="comment">// zskiplist长度为0</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建空的头节点，其中的score设置为0，ele设置为null</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 其中的将level数组设置成ZSKIPLIST_MAXLEVEL值，默认值为32</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;header = zslCreateNode(ZSKIPLIST_MAXLEVEL,<span class="number">0</span>,<span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化header节点的各个level</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; ZSKIPLIST_MAXLEVEL; j++) &#123;</span><br><span class="line"></span><br><span class="line">        zsl-&gt;header-&gt;level[j].forward = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        zsl-&gt;header-&gt;level[j].span = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 初始化header节点的backward指针</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;header-&gt;backward = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    zsl-&gt;tail = <span class="literal">NULL</span>; <span class="comment">// 初始化zskiplist的尾指针</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> zsl;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里需要展开介绍的是 <strong>zslCreateNode() 函数，其核心逻辑是为 zskiplistNode 节点申请空间</strong>，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">zskiplistNode *zn = zmalloc(<span class="keyword">sizeof</span>(*zn)+level*<span class="keyword">sizeof</span>(<span class="keyword">struct</span> zskiplistLevel));</span><br></pre></td></tr></table></figure>
+
+<p>这里的关键点在于：不仅要为了 zskiplistNode 结构体申请空间，因为里面的 level 字段是个柔性数组，还需要为每个 level 层对应的 zskiplistLevel 申请空间，默认 header 节点的 level 是 32 层。</p>
+<h3 id="插入数据"><a href="#插入数据" class="headerlink" title="插入数据"></a>插入数据</h3><p>创建完 zskiplist 实例之后，我们就可以开始关注于如何向这个 zskiplist 实例里面插入数据了，插入操作的入口是 <code>zslInsert() 函数</code>。先来看该函数依赖的两个辅助数组。</p>
+<ul>
+<li>update[] 数组：其中每个元素都是 zskiplistNode * 指针类型，记录了此次插入节点前面的一个节点，每层一个节点，所以是数组类型。举个例子，在下图这个 zskiplist 里面添加 50 这个元素，50 在各个层级的位置是图中粉红色节点的位置，在插入50 的时候，需要 update[] 数组辅助记录 50 前面的节点，比如图中的，update[0] 记录的就是插入节点在 level[0] 层中的前一个节点，也就是 48 这个节点。</li>
+</ul>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/6d50d0f44de4497780ff138193bee48a~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<ul>
+<li>rank[] 数组：记录每层从 header 节点遍历到 update[i] 节点所经过的节点个数，也就是 update[i] 节点是 zskiplist 中的第几个节点。这主要是为了设置新插入节点的 span 字段。如上图所示，rank[0] 记录了插入节点从 header 节点开始到插入节点需要经过的节点数。你可以结合 ZRANK 命令的功能，来理解 rank 数组的含义。</li>
+</ul>
+<h4 id="1-查找插入位置"><a href="#1-查找插入位置" class="headerlink" title="1. 查找插入位置"></a>1. 查找插入位置</h4><p>了解了辅助数组的具体含义之后，我们正式开始分析 <code>zslInsert() 函数</code>的逻辑，正如前文提到的 zskiplist 是一个有序链表，所以需要先根据插入值找到合适的插入位置，具体的实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line">zskiplistNode * x = zsl-&gt;header;</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (i = zsl-&gt;level<span class="number">-1</span>; i &gt;= <span class="number">0</span>; i--) &#123; <span class="comment">// 从顶层的header节点开始遍历</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果是顶层的话，对应的rank[i]值初始化为0，如果是迭代过程中从i+1下降到</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 了i层，会在前一层，也是就是rank[i+1]的基础上继续累加</span></span><br><span class="line"></span><br><span class="line">    rank[i] = i == (zsl-&gt;level<span class="number">-1</span>) ? <span class="number">0</span> : rank[i+<span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 下面开始在i这一层进行迭代</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (x-&gt;level[i].forward &amp;&amp; <span class="comment">// 条件1：i这一层还有后续可迭代的节点</span></span><br><span class="line"></span><br><span class="line">            (x-&gt;level[i].forward-&gt;score &lt; score || <span class="comment">// 条件2：后一个节点的score小于目标score</span></span><br><span class="line"></span><br><span class="line">                <span class="comment">// 条件3：如果score相等，需要后一个节点的ele小于目标ele</span></span><br><span class="line"></span><br><span class="line">                (x-&gt;level[i].forward-&gt;score == score &amp;&amp;</span><br><span class="line"></span><br><span class="line">                sdscmp(x-&gt;level[i].forward-&gt;ele,ele) &lt; <span class="number">0</span>)))</span><br><span class="line"></span><br><span class="line">    &#123; <span class="comment">// 满足上述三个条件，才能继续在i层向后</span></span><br><span class="line"></span><br><span class="line">        rank[i] += x-&gt;level[i].span; <span class="comment">// 递增rank[i]，记录这两个节点i这一层</span></span><br><span class="line"></span><br><span class="line">        x = x-&gt;level[i].forward; <span class="comment">// x指针后移</span></span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 不满足上述三个条件的话，会降级到i-1层，降级之前需要将x节点记录</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 到update[i]中，表示插入的新节点将在i层中的x节点之后</span></span><br><span class="line"></span><br><span class="line">    update[i] = x;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面我们通过一个示例来详细说明上述这段代码的核心逻辑。</p>
+<p>假设现在要向下图展示的 zskiplist 中插入 score 为 40 的节点，初始化状态如下图所示，x 指向了 zskiplist 的 header 节点，此时 rank[2] 初始化为 0：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/241cc4a41d3646b4b8c84abda0872782~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<ul>
+<li><strong>level 2 层迭代过程</strong></li>
+</ul>
+<p>开始从 zskiplist 的最高层，也就是示例中的 level 2，向后遍历，此时如下图所示，x 指向 18 这个节点，x-&gt;level[2].forward 指向 NULL，同时会更新 rank[2] 为 4。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f57b8b03b2b54e34a0d0b7ebdb416415~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>由于 x-&gt;level[2].forward 为 NULL，不满足条件 1，所以无法在 level 2 这一层上继续遍历了，需要更新 update[2] 指向节点 18。</p>
+<ul>
+<li><strong>level 1 层迭代过程</strong></li>
+</ul>
+<p>接下来，进入 level 1 的迭代，x 依旧指向节点 18，但是关注的是 level 1 层的内容了，x-&gt;level[1].forward 指向节点 35，如下图所示，此时初始化 rank[1] 为 4。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/2a2368564a3c4b849362fec628596456~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>继续 level 1 的迭代，x 指向节点 35，x-&gt;level[1].forward 指向 NULL，同时更新 rank[1] 为 6，如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/acf5d427b1b74223ab00124406661f71~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>此时，因为 x-&gt;level[1].forward 为 NULL，不满足条件 1，所以已经无法在 level 1 继续迭代了，需要更新 update[1] 指向节点 35。</p>
+<ul>
+<li><strong>level 0 迭代过程</strong></li>
+</ul>
+<p>最后，进入 level 0 的迭代，x 依旧指向节点 35，x-&gt;forward 指向节点 48，如下图所示，此时初始化 rank[0] 为 6。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3106818c25f249e5a7b72ae7a88b512e~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>此时，因为 x-&gt;level[0].forward-score &gt; 40，不满足条件 2，所以已经无法在 level 0 继续迭代了，需要更新 update[0] 指向节点 35。</p>
+<p>到此为止，我们也就明确了新插入 score 为 40 的节点位于 35 和 48 两个节点之间。</p>
+<h4 id="2-计算新节点的-level"><a href="#2-计算新节点的-level" class="headerlink" title="2. 计算新节点的 level"></a>2. 计算新节点的 level</h4><p>确认了插入位置之后，接下来要做的就是计算新节点的 level 值，具体代码实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">level = zslRandomLevel(); <span class="comment">// 随机生成一个level值</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (level &gt; zsl-&gt;level) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果新生成的level值大于了zskiplist当前的level值时，则</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 需要整个zskiplist的level升高</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = zsl-&gt;level; i &lt; level; i++) &#123;</span><br><span class="line"></span><br><span class="line">        rank[i] = <span class="number">0</span>; <span class="comment">// 初始化新level对应的rank以及update数组</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 新level一个节点都没有，插入位置是在header节点之后</span></span><br><span class="line"></span><br><span class="line">        update[i] = zsl-&gt;header; </span><br><span class="line"></span><br><span class="line">        <span class="comment">// 暂时初始化header节点的span字段，后面会在插入时重新根据rank计算并修改</span></span><br><span class="line"></span><br><span class="line">        update[i]-&gt;level[i].span = zsl-&gt;length; </span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    zsl-&gt;level = level; <span class="comment">// 升高整个zskiplist的level字段</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>升高 level 以及更新 rank 数组和 update 数组的一系列逻辑，都比较常规，但是有的同学可能会对 zslRandomLevel() 随机生成 level 值的行为感到担忧，一旦在一个只有几个元素的小 zskiplist 中，生成一个较大的 level 会造成资源浪费。那我们就再深入到 <code>zslRandomLevel() 函数</code>中看一下其具体实现：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">zslRandomLevel</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> level = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// ZSKIPLIST_P默认值为0.25</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> ((random()&amp;<span class="number">0xFFFF</span>) &lt; (ZSKIPLIST_P * <span class="number">0xFFFF</span>))</span><br><span class="line"></span><br><span class="line">        level += <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> (level&lt;ZSKIPLIST_MAXLEVEL) ? level : ZSKIPLIST_MAXLEVEL;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里关注其中的 while 循环条件，ZSKIPLIST_P 默认值为 0.25，也就是说每增高一层的概率为 25%，增高到 4 层的概率不到 0.4%，增高到 5 层的概率不到 0.01%，所以无需过度担心层高过高的问题。</p>
+<h4 id="3-插入节点"><a href="#3-插入节点" class="headerlink" title="3. 插入节点"></a>3. 插入节点</h4><p>计算完插入节点的 level 层级之后，我们就要开始插入新节点了，具体的代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 创建新zskiplistNode节点，其中会初始化score、ele以及level数组</span></span><br><span class="line"></span><br><span class="line">x = zslCreateNode(level,score,ele);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 下面在各level中插入新节点，插入位置就是在对应的update[i]之后</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; level; i++) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置x节点的在各个层的forward指针</span></span><br><span class="line"></span><br><span class="line">    x-&gt;level[i].forward = update[i]-&gt;level[i].forward;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 设置各层update节点的forward指针</span></span><br><span class="line"></span><br><span class="line">    update[i]-&gt;level[i].forward = x;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 更新新插入节点以及前一个节点的span</span></span><br><span class="line"></span><br><span class="line">    x-&gt;level[i].span = update[i]-&gt;level[i].span - (rank[<span class="number">0</span>] - rank[i]);</span><br><span class="line"></span><br><span class="line">    update[i]-&gt;level[i].span = (rank[<span class="number">0</span>] - rank[i]) + <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面我们依旧以插入 score 为 40 节点为示例，分析插入新节点这段逻辑，这里假设 40 这个节点随机生成的 level 为 2。在插入 level 0 时的指针操作，如下图所示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/171e0c7f39234348bb3e291c239b46b0~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里特别关注一下 span 字段的更新，我们知道 span 字段表示的是当前节点通过 forward 指针往后到下一个节点，扫过的元素个数。所以，新节点 x 插入的时候，不仅要设置新节点 x 的 span 值，还要更新 update[0] 节点的 span 值。在 level 0 中 update[0] 节点，也就是 35 节点，在新节点 x 插入之前，通过 forward 向后走一步，只扫过了 48 这个节点，所以 span 是 1；插入之后，通过 forward 向后走一步，只扫过 40 这个节点，所以 span 还是 1。同理，新节点 x，也就是 40 这个节点，在 level 0 中的 span 也是 1。</p>
+<p>接下来看 level 1 这一层中 40 这个新节点的插入逻辑，主要还是 forward 指针的操作，如下图所示：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a43343133efc455fb0335434ca961602~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里我们还是来关注一下，新节点 x 在 level 1 层插入时导致的 span 更新：在 level 1 中，update[0] 节点，也就是 35 节点，在新节点 x 插入之前，通过 forward 向后走一步，到了 NULL，但是还是可以扫过且只扫过 48 这个节点的，所以 span 是 1；插入之后，通过 forward 向后走一步，扫过且只扫过 40 这个节点，所以 span 还是 1。新节点 x 插入之后，在 level 1 中，通过 forward 指针向后走一步，得到 NULL，但扫过且只扫过 48，所以 span 也是 1。</p>
+<p>我们抽象一下上述逻辑，转换成统一的 span 更新逻辑，rank[i] 记录了 update[i] 是第几个节点，rank[0] - rank[i] 得到的就是 update[i] 到 x 节点的节点数，如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/90a21bd4a33348e986574bfb4c7f3c62~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>那么从上图可以直接看出，在 level i 层中，x-&gt;level[i].span 是插入前 updater[i]-&gt;level[i].span 减去（rank[0] - rank[1]），插入后的 update[i]-&gt;level[i].span 是 rank[0] - rank[i] +1。</p>
+<p>到这里，插入操作还没全部完成，当前 zskiplist 总共三层，虽然新节点 x 只有两层，zskiplist 的 level 2 中不需要有指针操作，但是 x 节点是插入到了 update[2] 节点之后，会影响到其 span 值，所以还需要执行下面这个循环，更新 update[2] 节点在 level 2 中的 span 值：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (i = level; i &lt; zsl-&gt;level; i++) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 无指针操作的level中，对应的update[i]节点的span会受影响</span></span><br><span class="line"></span><br><span class="line">    update[i]-&gt;level[i].span++;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="4-修改-backward-指针"><a href="#4-修改-backward-指针" class="headerlink" title="4. 修改 backward 指针"></a>4. 修改 backward 指针</h4><p>到此为止，我们已经完成了新节点的插入，在 zslInsert() 函数的最后，会调整 level 0 中新节点以及其后节点的 backward 指针，相关代码实现如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 调整新插入节点的backward指针，x为第一个节点的话，其backward会指向NULL，</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 否则，指向update[0]节点即可</span></span><br><span class="line"></span><br><span class="line">x-&gt;backward = (update[<span class="number">0</span>] == zsl-&gt;header) ? <span class="literal">NULL</span> : update[<span class="number">0</span>];</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (x-&gt;level[<span class="number">0</span>].forward) <span class="comment">// 调整x之后节点的backward指针</span></span><br><span class="line"></span><br><span class="line">    x-&gt;level[<span class="number">0</span>].forward-&gt;backward = x;</span><br><span class="line"></span><br><span class="line"><span class="keyword">else</span> <span class="comment">// 如果x是最后一个节点，zskiplist的尾指针会指向x</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;tail = x;</span><br><span class="line"></span><br><span class="line">zsl-&gt;length++; <span class="comment">// 最后，增加zskiplist长度并返回x这个新插入的节点</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">return</span> x;</span><br></pre></td></tr></table></figure>
+
+<h3 id="删除数据"><a href="#删除数据" class="headerlink" title="删除数据"></a>删除数据</h3><p>了解了 zskiplist 的插入逻辑之后，我们再来看一下从 zskiplist 中删除节点的实现。从 zskiplist 中删除数据的入口是 <code>zslDelete() 函数</code>，其核心逻辑如下。</p>
+<ol>
+<li><p>首先，根据传入的 score 分数值以及 ele 值，查找要删除的目标节点。该查找过程与 zslInsert() 函数中查找插入位置的逻辑基本类似，这里不再重复。</p>
+</li>
+<li><p>在查找到待删除的目标节点之后，会调用 zslDeleteNode() 函数进行删除。</p>
+</li>
+<li><p>目标节点从 zskiplist 中删除之后，会根据 zslDelete() 函数的 node 参数（第三个参数）决定是将 node 指针指向这个删除的目标节点，作为输出参数传给调用方，还是调用 zslFreeNode() 函数销毁掉节点。在zslFreeNode() 函数中会先销毁节点中 ele 字段记录的 sds 实例，然后销毁节点对应的 zskiplistNode 实例。</p>
+</li>
+</ol>
+<p>这里我们展开介绍一下 <code>zslDeleteNode() 函数</code>的逻辑。</p>
+<ol>
+<li>删除目标节点的时候，必然会影响前一个节点的 span 值，所以首先要执行下面这个 for 循环，逐层调整前一个节点的 span 值，具体代码实现如下：</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; zsl-&gt;level; i++) &#123; <span class="comment">// 逐层调整对应的update[i]</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (update[i]-&gt;level[i].forward == x) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 待删除的x节点如果在i层中，则需要修改update[i]节点的span，</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 将其合并x节点的span，这里之所以减 1，是因为要删除x节点</span></span><br><span class="line"></span><br><span class="line">        update[i]-&gt;level[i].span += x-&gt;level[i].span - <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 修改update[i]的forward指针</span></span><br><span class="line"></span><br><span class="line">        update[i]-&gt;level[i].forward = x-&gt;level[i].forward;</span><br><span class="line"></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果待删除的x节点没有在i层中，只需要将update[i]节点的span减1即可</span></span><br><span class="line"></span><br><span class="line">        update[i]-&gt;level[i].span -= <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>接下来，调整 level 0 层的 backward 指针，具体实现如下：</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (x-&gt;level[<span class="number">0</span>].forward) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// x节点后面的节点存在，则将其backward指针指向x节点的前一个节点</span></span><br><span class="line"></span><br><span class="line">    x-&gt;level[<span class="number">0</span>].forward-&gt;backward = x-&gt;backward;</span><br><span class="line"></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果x是最后一个节点，在x删除之后，zskiplist尾指针要指向x前面的节点</span></span><br><span class="line"></span><br><span class="line">    zsl-&gt;tail = x-&gt;backward;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>最后，如果删除的 x 节点是最高 level 中的唯一节点，那整个 zskiplist 的 level 将会降低，同时还会调整整个 zskiplist 的长度，具体实现如下：</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 如果删除的x节点是最高level中的唯一节点，那整个zskiplist的level将会降低</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span>(zsl-&gt;level &gt; <span class="number">1</span> &amp;&amp; </span><br><span class="line"></span><br><span class="line">      zsl-&gt;header-&gt;level[zsl-&gt;level<span class="number">-1</span>].forward == <span class="literal">NULL</span>)</span><br><span class="line"></span><br><span class="line">    zsl-&gt;level--;</span><br><span class="line"></span><br><span class="line">zsl-&gt;length--; <span class="comment">// 更新zskiplist的长度</span></span><br></pre></td></tr></table></figure>
+
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本节我们详细介绍了 Redis 中 skiplist 相关的内容。</p>
+<ul>
+<li>首先，阐明了 skiplist 这个数据结构的基本概念和其高效查询的原理。</li>
+<li>然后，深入分析了 Redis 对 skiplist 的抽象，其中涉及 zskiplistNode、zskiplist 等核心结构体的解析。</li>
+<li>最后，拆解了 Redis 中操作 zskiplist 的核心函数，例如，创建 zskiplist 和 zskiplistNode 实例函数、向 zskiplist 插入新节点的核心流程，以及从 zskiplist 中删除节点的流程。</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC24%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9Askiplist%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC24%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9Askiplist%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC26%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84%E4%BD%93%E7%B2%BE%E8%AE%B2/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC28%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A0%B8%E5%BF%83%E6%A1%86%E6%9E%B6%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#skiplist-%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5"><span class="toc-number">1.</span> <span class="toc-text">skiplist 基本概念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#zskiplist-%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">zskiplist 核心实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#zskiplist-%E6%A0%B8%E5%BF%83%E5%87%BD%E6%95%B0"><span class="toc-number">3.</span> <span class="toc-text">zskiplist 核心函数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-zskiplist"><span class="toc-number">3.1.</span> <span class="toc-text">创建 zskiplist</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8F%92%E5%85%A5%E6%95%B0%E6%8D%AE"><span class="toc-number">3.2.</span> <span class="toc-text">插入数据</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#1-%E6%9F%A5%E6%89%BE%E6%8F%92%E5%85%A5%E4%BD%8D%E7%BD%AE"><span class="toc-number">3.2.1.</span> <span class="toc-text">1. 查找插入位置</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#2-%E8%AE%A1%E7%AE%97%E6%96%B0%E8%8A%82%E7%82%B9%E7%9A%84-level"><span class="toc-number">3.2.2.</span> <span class="toc-text">2. 计算新节点的 level</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#3-%E6%8F%92%E5%85%A5%E8%8A%82%E7%82%B9"><span class="toc-number">3.2.3.</span> <span class="toc-text">3. 插入节点</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#4-%E4%BF%AE%E6%94%B9-backward-%E6%8C%87%E9%92%88"><span class="toc-number">3.2.4.</span> <span class="toc-text">4. 修改 backward 指针</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A0%E9%99%A4%E6%95%B0%E6%8D%AE"><span class="toc-number">3.3.</span> <span class="toc-text">删除数据</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

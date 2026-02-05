@@ -1,0 +1,325 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="通过前文的介绍我们知道，Redis 在开启 AOF 持久化功能之后，会将修改命令写入到磁盘上的 AOF 文件。随着 Redis 运行时间越久，就会有越来越多的命令追加 AOF 文件中，AOF 文件的大小也会不断膨胀，如果之后在某个时间点，要使用 AOF 文件进行恢复，就会读取很多无用的命令，导致耗时较长。 下图举了个例子，Redis 依次收到了 SET Key1 Value1 、SET Key1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC46%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOFRewrite%E6%9C%BA%E5%88%B6%E5%89%96%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="通过前文的介绍我们知道，Redis 在开启 AOF 持久化功能之后，会将修改命令写入到磁盘上的 AOF 文件。随着 Redis 运行时间越久，就会有越来越多的命令追加 AOF 文件中，AOF 文件的大小也会不断膨胀，如果之后在某个时间点，要使用 AOF 文件进行恢复，就会读取很多无用的命令，导致耗时较长。 下图举了个例子，Redis 依次收到了 SET Key1 Value1 、SET Key1">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC46%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOFRewrite%E6%9C%BA%E5%88%B6%E5%89%96%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.709Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.709Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>通过前文的介绍我们知道，Redis 在开启 AOF 持久化功能之后，会将修改命令写入到磁盘上的 AOF 文件。随着 Redis 运行时间越久，就会有越来越多的命令追加 AOF 文件中，AOF 文件的大小也会不断膨胀，如果之后在某个时间点，要使用 AOF 文件进行恢复，就会读取很多无用的命令，导致耗时较长。</p>
+<p>下图举了个例子，Redis 依次收到了 <code>SET Key1 Value1</code> 、<code>SET Key1 Value2</code> 、<code>SET Key1 Value3</code> 、<code>SET Key1 Value4</code> 这四条命令，相应地，在 AOF 文件中就会记录这 4 条命令，如下图最左边这一栏所示。在这 4 条命令的执行过程中，Redis 中 Key1 对应的 Value 值也在不断发生变化，如果下图红色那一栏所示。如果我们在 <code>SET Key1 Value4</code> 这条命令执行完之后，使用这个 AOF 文件进行数据恢复，这里的前三条 SET 命令其实都是无效的，因为执行或不执行这些语句，都不会影响最终的恢复结果。</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/ec08f8670550429b827954cb55b236ea~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>为了解决这一问题，Redis 会定期对 AOF 进行压缩，这一操作被称为 <strong><code>AOF Rewrite</code>，其核心原理是将 AOF 文件中无效的命令删除，只保留有效的命令</strong>。如上图右侧两栏所示，在 AOF Rewrite 之后，AOF 日志中只保留 <code>SET Key1 Value4</code> 这一条命令，对应地就是当前 Redis 中 Key1 的最新值。</p>
+<p>AOF Rewrite 的核心实现原理就是扫描 Redis 中的全部键值对，将写入这个键值对的操作用一条命令表示出来，然后将这个条命令保存到 AOF 文件中就可以。<strong>Redis 实现 AOF Rewrite 机制通过子进程的方式实现的</strong>，如下图所示，fork() 出来的子进程拥有此时 Redis 的内存快照，然后子进程就可以开始扫描 Redis 中的全部键值对，然后生成 Rewrite 的临时文件。与此同时，主进程开始将 AOF 日志同时写入到 AOF 缓冲区和 Rewrite 缓冲区两个缓冲区中，其中 AOF 缓冲区会正常刷盘，这样即使出现宕机，AOF 日志也不会丢失。在子进程完成 Rewrite 操作之后，主进程会将 Rewrite 缓冲区的数据，写入到临时文件，然后将临时文件进行重命名，替换原来的 AOF 文件，后续新的 AOF 日志就会写入到这个 Rewrite 之后的 AOF 文件中。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/972f66969b404947b28bba18660bbce1~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>上述 AOF Rewrite 操作是 Redis 7.0 之前的逻辑，我们会发现在这个版本的 AOF Rewrite 会带来一些性能问题，如下。</p>
+<ul>
+<li><p>需要新开辟一个 AOF Rewrite 缓冲区，用于存放 Rewrite 期间的全部 AOF 日志。在写入密集的场景下，Rewrite 缓冲区会消耗大量的内存。</p>
+</li>
+<li><p>正如前文所示，在 AOF Rewrite 过程中，主进程除了会将修改写命令写入到 AOF 缓冲区之外，还会将同一份日志写入到 Rewrite 缓冲区中。在 Rewrite 过程中，AOF 缓冲区中的日志正常刷盘，在 Rewrite 结束的时候，Rewrite 缓冲区的数据会写入到新 AOF 文件中，这样的话，就是一份日志数据，产生了两次磁盘 IO，很明显，是对磁盘 IO 的浪费。</p>
+</li>
+<li><p>由于 Rewrite 操作结束的时候，把 Rewrite 缓冲区刷到磁盘的这个操作，是在主进程中完成的，如果 Rewrite 缓冲区比较大，就会阻塞命令执行，造成 Redis 耗时上的尖刺，甚至出现客户端请求超时。</p>
+</li>
+<li><p>还有一个代码实现上的问题，那就是 AOF Rewrite 需要主子进程进行复杂的通信，这里使用 6 个管道进行实现，逻辑较难理解。</p>
+</li>
+</ul>
+<p>为了解决上述 AOF Rewrite 带来的问题，<code>在 Redis 7.0 版本中，引入了 Multi-Part AOF 机制</code>。Multi-Part AOF 机制是将原来的单个 AOF 文件拆分成多个 AOF 文件，每个 AOF 文件都有不同的类型，不同类型的 AOF 文件有不同的职责。</p>
+<ul>
+<li><p><strong>Base AOF 文件</strong>：它是通过子进程的 Rewrite 操作产生的，这类 AOF 文件最多只有一个。</p>
+</li>
+<li><p><strong>Incr AOF 文件</strong>：它会在 AOF Rewrite 操作开始的时候创建，用来支持 AOF 文件的增量写入，这类 AOF 文件可能会同时存在多个。</p>
+</li>
+<li><p><strong>History AOF 文件</strong>：它表示历史版本的 Base AOF 文件和 Incr AOF 文件，在每次 AOF Rewrite 操作完成的时候，之前的 Base AOF 文件和 Incr AOF 文件都将变为 History 类型。之后，Redis 会自动删除 History 类型的 AOF 文件。</p>
+</li>
+</ul>
+<p>为了方便管理这些 Multi-Part AOF 文件，Redis 使用一个独立的 manifest 文件，来单独维护这些 AOF 文件的信息。这个 manifest 文件以及所有的 AOF 文件，都会放到 redis.conf 中 appenddirname 配置项指定的这个统一的目录下。</p>
+<p>接下来，我们结合下面这张图，简单介绍一下 Multi-Part AOF 机制的原理。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/370211869e374212b67d8cb61d8e5a58~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>在触发 AOF Rewrite 的时候，Redis 首先会创建一个新的 Incr AOF 文件，在整个 Rewrite 期间，主进程会将所有的 AOF 日志写入到这个新建的 Incr AOF 文件中，老的 Incr AOF 文件不再写入。新建好 Incr AOF 文件之后，主进程会 fork 出一个子进程，由这个子主进程执行 Rewrite 操作。</p>
+<p>在子进程进行 Rewrite 的过程中，不会与主进程进行任何的数据交互或者控制交互，<code>两者完全独立</code>。子进程 Rewrite 完成之后，会生成一个 Base AOF 文件，这个 Base AOF 文件与新建的 Incr AOF 文件一起，就包含了当前 Redis 中全部的数据。在 AOF Rewrite 操作结束的时候，主进程还需要负责更新一下 manifest 文件，将新生成的 Base AOF 和 Incr AOF 文件的信息记录下来，同时，将之前的 Base AOF 文件以及 Incr AOF 文件，标记为 History，之后，Redis 会异步删除这些 History AOF 文件。</p>
+<p>到此为止，整个 AOF Rewrite 操作就完成了。</p>
+<p>通过上面的介绍我们知道，整个 Multi-Part AOF 在 Rewrite 的过程中，没有重复写入 AOF 日志，没有使用 AOF Rewrite 缓冲区暂存日志，主子进程之间也没有复杂的交互，比较好地解决了前面提到的 AOF Rewrite 带来的问题。</p>
+<p>Multi-Part AOF 功能涉及到 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/pull/9539">https://github.com/redis/redis/pull/9539</a> 和 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/pull/9788">https://github.com/redis/redis/pull/9788</a> 两个 PR，感兴趣的小伙伴可以去阅读一下这两个 PR 的内容，可以更清楚 Multi-Part AOF 机制的来龙去脉。</p>
+<h2 id="Rewrite-触发时机"><a href="#Rewrite-触发时机" class="headerlink" title="Rewrite 触发时机"></a>Rewrite 触发时机</h2><p>了解了 AOF Rewrite 以及 Multi-Part AOF 优化的核心思想之后，下面我们就可以深入分析一下 AOF Rewrite 的具体实现。</p>
+<p>首先，来看<code>触发 AOF Rewrite 的三个时机</code>，如下图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/9a5d7f1b6c664198b0c059c61b0f6cef~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<ol>
+<li>手动调用 BGREWRITEAOF 命令，对应上图中 bgrewriteaofCommand() 函数处的调用。</li>
+<li>触发了 Redis 配置指定的定时 Rewrite 条件，对应上图中 serverCron() 函数处的调用。</li>
+<li>通过 CONFIG SET appendonly yes 命令开启，对应上图中 startAppendOnly() 函数处的调用。</li>
+</ol>
+<p>下面我们一个个展开看一下这些 AOF Rewrite 调用点的具体逻辑，首先是 bgrewriteaofCommand() 函数，它会检查当前是否有子进程在运行，以及这个子进程的类型是什么，也就是检查 redisServer.child_type 字段的值，具体的核心流程如下图所示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/85c6ebeb644f4fe698b814002fe3f2d3~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>在 serverCron() 这个周期执行的函数中，有两个条件会触发 AOF Rewrite：一个是它会检查 redisServer. aof_rewrite_scheduled 是否被标记为 1，如果是的话，证明有 AOF Rewrite 的任务在等待执行，当前要是没有子进程在执行，那就可以执行 rewriteAppendOnlyFileBackground() 函数，开始 AOF Rewrite 的操作；另一个触发条件是检查 AOF 文件的大小以及增长率是否超出了限制，如果超出了限制，才会触发 AOF Rewrite 操作。相关代码片段如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">serverCron</span><span class="params">(<span class="keyword">struct</span> aeEventLoop *eventLoop, <span class="type">long</span> <span class="type">long</span> id, <span class="type">void</span> *clientData)</span>&#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="comment">// hasActiveChildProcess()是检查是否有子进程在执行，</span></span><br><span class="line">     <span class="keyword">if</span> (!hasActiveChildProcess() &amp;&amp; server.aof_rewrite_scheduled) &#123;</span><br><span class="line">        rewriteAppendOnlyFileBackground(); <span class="comment">// 触发Rewrite操作</span></span><br><span class="line">    &#125;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    </span><br><span class="line">    <span class="comment">// aof_rewrite_perc字段对应auto-aof-rewrite-percentage配置，</span></span><br><span class="line">    <span class="comment">// 用于记录AOF增长比例上限，默认值是100%</span></span><br><span class="line">    <span class="comment">// aof_rewrite_min_size字段对应auto-aof-rewrite-min-size配置，</span></span><br><span class="line">    <span class="comment">// 用于记录当前Base AOF文件和Incr AOF两个文件之和的上限值，默认值是64M</span></span><br><span class="line">    <span class="comment">// 当AOF文件超过了这两个上限值，就会触发Rewrite操作</span></span><br><span class="line">    <span class="keyword">if</span> (server.aof_state == AOF_ON &amp;&amp; !hasActiveChildProcess() &amp;&amp; </span><br><span class="line">        server.aof_rewrite_perc &amp;&amp;</span><br><span class="line">        server.aof_current_size &gt; server.aof_rewrite_min_size) &#123;</span><br><span class="line">        <span class="type">long</span> <span class="type">long</span> base = server.aof_rewrite_base_size ? </span><br><span class="line">                server.aof_rewrite_base_size : <span class="number">1</span>;</span><br><span class="line">        <span class="type">long</span> <span class="type">long</span> growth = (server.aof_current_size * <span class="number">100</span> / base) - <span class="number">100</span>;</span><br><span class="line">        <span class="keyword">if</span> (growth &gt;= server.aof_rewrite_perc &amp;&amp; !aofRewriteLimited()) &#123;</span><br><span class="line">            rewriteAppendOnlyFileBackground(); <span class="comment">// 触发Rewrite操作</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    ...<span class="comment">// 省略其他逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>从上面的代码实现可以看出，在 serverCron() 函数针对 AOF 文件的大小，会周期性地检查两个方面，这两方面条件都成立了，才能触发 AOF Rewrite。</p>
+<ul>
+<li><p><strong>一方面是 AOF 文件增长了多少</strong>。在每次 Rewrite 结束之后，我们都会得到一个 Base AOF 文件和一个 Incr AOF 文件，Redis 会将这两个文件的大小之和，记录到 redisServer.aof_rewrite_base_size 字段中。在 serverCron() 函数中周期性地检查当前 AOF 文件（Base AOF + Incr AOF）的大小，也就是 redisServer. aof_current_size 字段，与 aof_rewrite_base_size 字段之间的增长比例，如果增长超过指定值 auto-aof-rewrite-percentage 配置的百分比（默认值是 100，也就是文件大小翻倍），就有资格触发 AOF Rewrite 操作。</p>
+</li>
+<li><p><strong>另一方面是 AOF 文件的大小</strong>。auto-aof-rewrite-min-size 配置项（默认值为 64MB）指定了 AOF 文件（Base AOF + Incr AOF）能触发 Rewrite 的最小文件大小。</p>
+</li>
+</ul>
+<p>在 AOF Rewrite 正常完成的时候，我们只会得到一个 Incr AOF，但是如果 AOF Rewrite 失败，我们就会额外得到一个 Incr AOF 文件。为了防止连续的 AOF Rewrite 失败，导致 Incr AOF 文件过多，这里由 aofRewriteLimited() 函数来控制 AOF Rewrite 失败之后的退避时间。在 AOF Rewrite 连续失败三次以内，不会进行退避，但是超过三次之后，就会按照 1、4、8、16、32、60 （单位分钟）这个时间间隔进行延迟，最长延迟上限就是 60 分钟。</p>
+<p>最后一个触发 Rewrite 操作的地方，是我们通过 <code>CONFIG SET appendonly yes</code> 命令手动将 AOF 功能开启的时候，会触发一次 AOF Rewrite 操作。在 startAppendOnly() 函数中会将 redisServer.aof_state 这个状态字段设置为 AOF_WAIT_REWRITE，之后会和 bgrewriteaofCommand() 函数类似，检查子进程的运行状态和类型，如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/7dd41d8d93a84758a84ec1baa979dac4~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="Rewrite-核心实现"><a href="#Rewrite-核心实现" class="headerlink" title="Rewrite 核心实现"></a>Rewrite 核心实现</h2><p>说完了 AOF Rewrite 的三个触发时机之后，接下来关注一下 AOF Rewrite 的核心实现。</p>
+<p>这里先要看几个关键字段和结构体，第一个是 aofManifest 结构体，它里面记录了当前的 Base AOF 和 Incr AOF 文件，以及 History AOF 文件列表。每个 AOF 文件都被抽象成了 aofInfo 结构体，其中记录了文件的名称、文件序号以及文件类型。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">    sds           file_name; <span class="comment">// 文件名称</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span>     file_seq;  <span class="comment">// 文件序号</span></span><br><span class="line">    aof_file_type file_type; <span class="comment">// 文件类型，分别用b(Base)、h(History)、i(Incr)三个字符表示</span></span><br><span class="line">&#125; aofInfo;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">    aofInfo     *base_aof_info; <span class="comment">// 当前Base文件</span></span><br><span class="line">    <span class="built_in">list</span>        *incr_aof_list; <span class="comment">// 当前Incr文件，由于Rewrite操作可能会失败，就会产生多个Incr文件</span></span><br><span class="line">    <span class="built_in">list</span>        *history_aof_list;  <span class="comment">// History AOF文件列表</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span>   curr_base_file_seq;   <span class="comment">// 用于给Base AOF文件生成编号的自增字段</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span>   curr_incr_file_seq;   <span class="comment">// 用于给Incr AOF文件生成编号的自增字段</span></span><br><span class="line">    <span class="type">int</span>         dirty;           <span class="comment">// 当前aofManifest实例与磁盘上的manifest文件是否一致</span></span><br><span class="line">&#125; aofManifest;</span><br></pre></td></tr></table></figure>
+
+
+<p>在 redisServer 结构体中，维护了一个 aof_manifest 字段，它就是 aofManifest 类型，其内容对应磁盘中 manifest 文件的内容，每次更新 manifest 文件内容之前，先要更新这个字段。</p>
+<h3 id="准备操作"><a href="#准备操作" class="headerlink" title="准备操作"></a>准备操作</h3><p>下面我们正式开始分析 AOF Rewrite 的实现，下图展示了 rewriteAppendOnlyFileBackground() 这个入口函数的核心逻辑：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f4f0db2705274f72895491d30702681a~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>rewriteAppendOnlyFileBackground() 函数首先会检查一下启动 AOF Rewrite 的条件，比如，AOF 目录是不是正常、是不是已经子进程在跑了。检查通过之后，就可以对当前使用的 Incr AOF 文件进行刷盘了，之后就不会再向这个 Incr AOF 文件中写入数据了。接下来，Redis 会执行 openNewIncrAofForAppend() 函数创建新的 Incr AOF 文件，在这个函数里面还会更新 manifest 文件，它的具体逻辑我们后面单独说。</p>
+<p>接下来，rewriteAppendOnlyFileBackground() 会 fork 出一个 AOF 子进程，在子进程中执行 rewriteAppendOnlyFile() 函数，执行真正的 AOF Rewrite 操作，主进程只是更新一下 AOF Rewrite 的启动时间之后，就可以退出 rewriteAppendOnlyFileBackground() 函数，继续去处理客户端的命令了。</p>
+<p>这里我们展开说一下 openNewIncrAofForAppend() 函数创建新 Incr AOF 文件的过程，这个函数主要处理两个场景，一个是我们在启动的时候，就已经开启了 AOF 功能，这个场景下，在 Redis 启动的时候，就已经通过 aofOpenIfNeededOnServerStart() 创建了 Base AOF、Incr AOF 以及 manifest 三个文件，它的调用栈如下图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3350ca9d58cb452e83d6724f58087eec~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>openNewIncrAofForAppend() 在这种场景下需要做的就是下图展示的 <code>AOF_ON 分支</code>，它会新建一个 Incr AOF 文件出来，然后把后续的 AOF 日志写入切换到这个新 Inrc AOF 文件中。另外，它还会把这个新 Incr AOF 文件的名称、编号等信息，更新到内存中的 redisServer.aof_manifest 中，然后写入到磁盘中对应的 manifest 文件中。这里同时会更新 redisServer 结构体中的多个字段，例如，aof_fd 字段指向了当前最新 Incr AOF 的文件描述符；aof_last_incr_size 字段记录的是当前最新 Incr AOF 文件的大小。</p>
+<p>注意一下 Incr AOF 文件的名称格式是 <code>&#123;appendfilename&#125;.&#123;seq&#125;.incr.aof</code>，其中的 {appendfilename} 部分由 redis.conf 文件中的 appendfilename 配置项指定，默认值就是 apendonly.aof；接下来的 {seq} 部分是编号，由前面介绍的 aofManifest.curr_incr_file_seq 自增得到；最后的 incr.aof 部分是固定的后缀。</p>
+<p>openNewIncrAofForAppend() 函数处理的第二个场景是在 Redis Server 启动的时候，没有开启 AOF 功能，之后通过 CONFIG SET appendonly yes 命令开启 AOF 日志的场景，对应的就是 aof_state 为 <code>AOF_WAIT_REWRITE 的分支</code>。在这个分支中，Redis 只是生成一个临时 Incr AOF 文件，它命名规则比较固定，分成了 temp 前缀、appendfilename 配置项指定的文件命令以及 .incr 后缀。在 Rewrite 期间的 AOF 日志都会写入到这个临时 AOF 文件中，这里不会将临时 Incr AOF 文件的信息添加到 manifest 文件中，而是等到 Rewrite 结束之后，将临时文件转换成正式的 Incr AOF 文件，才会加到 manifest 文件中。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/95eec061f4764485bd007fb6e63a0731~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h3 id="写入数据"><a href="#写入数据" class="headerlink" title="写入数据"></a>写入数据</h3><p>准备好 Incr AOF 文件之后，Redis 就可以<strong>正式调用 rewriteAppendOnlyFile() 函数开始写 Base 文件</strong>，下面是 rewriteAppendOnlyFile() 函数的核心流程：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/0eb00dfffed94cf9883ee57421e32e33~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>首先，rewriteAppendOnlyFile() 函数会创建一个临时文件，它是 Base 文件的前身，此次 Rewrite 的结果就会写入到这个文件中。为了写入数据，这里会同时创建一个 rio 实例来负责向这个文件写入数据，注意这里也有一个增量刷盘配置，对应 redis.conf 配置文件中的 aof-rewrite-incremental-fsync 配置项，它和前面介绍 RDB 持久化的时候，说的 rdb-save-incremental-fsync 配置项原理是一样的，这里就不再重复了。</p>
+<p>接下来，检查 aof-use-rdb-preamble 这个配置项是否开启，它的意思是在 Rewrite 过程中，是按照 RDB 编码格式写 Base 文件还是按照 AOF 日志的格式写 Base 文件，它的默认值是 yes，也就是使用 RDB 编码方式。使用 RDB 编码格式的好处是 RDB 格式紧凑、文件更小、恢复速度更快。</p>
+<p>如果使用 RDB 格式进行 Rewrite 的话，这里会执行前文介绍的 rdbSaveRio() 函数，这个过程我们就不再重复了。如果使用 AOF 格式进行 Rewrite 的话，这里会执行 rewriteAppendOnlyFileRio() 函数，按照 AOF 格式对 Redis 进行快照，并写入到临时文件中。</p>
+<p>在 rewriteAppendOnlyFileRio() 函数中，会遍历 Redis 中的所有 Key，并根据 Value 的不同类型生成对写命令，然后按照 AOF 日志格式进行编码后写入到临时文件中。下表展示了核心类型对应生成的 AOF 日志：</p>
+<table>
+<thead>
+<tr>
+<th><strong>Value 类型</strong></th>
+<th><strong>Rewrite 生成的对应 AOF 日志</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>字符串</td>
+<td>SET</td>
+</tr>
+<tr>
+<td>列表（Quicklist）</td>
+<td>RPUSH</td>
+</tr>
+<tr>
+<td>集合（Set）</td>
+<td>SADD</td>
+</tr>
+<tr>
+<td>有序集合（ZSet）</td>
+<td>ZADD</td>
+</tr>
+<tr>
+<td>哈希表（Hash）</td>
+<td>HMSET</td>
+</tr>
+<tr>
+<td>Stream</td>
+<td>XADD、XSETID、XGROUP CREATE</td>
+</tr>
+<tr>
+<td>过期时间</td>
+<td>PEXPIREAT</td>
+</tr>
+</tbody></table>
+<p>我们看到在生成列表、集合以及哈希表等类型对应的 AOF 日志时，使用的都是批量写入的命令，但是批量写入命令也不能无限追加 Value 值，这里的每条批量写入命令最多可以添加 64 个 Value 值（ 该值由 AOF_REWRITE_ITEMS_PER_CMD 宏定义），一旦 Value 个数超过 64，就会拆分成多条批量命令。</p>
+<p>除了上述数据结构之外，按照 AOF 格式 Rewrite 的时候，也是可以追加时间戳的，这和前面介绍的写 AOF 日志的逻辑相同，也是为了实现按时间点进行恢复。</p>
+<p>完成 Rewrite 数据的写入之后，rewriteAppendOnlyFile() 函数会对临时文件进行刷盘，然后将其进行重命名。</p>
+<h3 id="收尾工作"><a href="#收尾工作" class="headerlink" title="收尾工作"></a>收尾工作</h3><p>在引入 Multi-Part AOF 之前，主进程会通过管道把 Rewrite 期间的 AOF 日志传给子进程，然后子进程会在 Rewrite 结束之后，把这些 AOF 日志追加到文件末尾。这个交互流程非常复杂，也不利于维护。在 Redis 7 引入 Multi-Part AOF 之后，子进程只进行 Rewrite 操作，<code>收尾工作完全由主进程完成</code>，无需进程间复杂的交互了。</p>
+<p>前面说过，在子进程结束的时候，主进程会通过 checkChildrenDone() 函数感知到子进程结束，如果结束的是 AOF Rewrite 子进程，那么主进程会通过 backgroundRewriteDoneHandler() 函数完成 Rewrite 的收尾工作。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/93518c032b1942689342c1d6f9ab4578~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>在子进程完成 Rewrite 操作的时候，还并未真正生成一个有效的 Base 文件，主要有两点体现：一是文件名称不对，子进程生成的是一个名为 temp-rewriteaof-bg-{子进程 ID}.aof 的临时文件，不符合 Base 文件的命名规则；二是这个临时文件并没有加入到 manifest 文件中，Redis 恢复数据是根据 manifest 文件查找 Base 文件的，如果此时 Redis 宕机重启的时候，是完全感知不到这个文件的存在。所以，在 backgroundRewriteDoneHandler() 函数中，需要将 Rewrite 出来的临时 AOF 文件 rename 成 Base 文件，然后记录到 manifest 文件中。</p>
+<p>下面我们来看 <strong>backgroundRewriteDoneHandler() 函数</strong>中的核心流程，如图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a02253afe0c54e3cbae751a88ca1d7b5~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>首先，backgroundRewriteDoneHandler() 在修改 redisServer.aof_manifest 字段之前，先深拷贝一份临时的 aofManifest 实例出来，接下来的修改都是针对这个临时的 aofManifest 实例进行的，修改完成之后，直接替换到 aof_manifest 字段上。这样做的好处就是方便回滚，我们只要不更新 redisServer.aof_manifest 字段，在临时 aofManifest 实例上的修改，对 Redis 来说，都是不可见的。</p>
+<p>拷贝完 aofManifest 之后，Redis 会生成一个新的 Base AOF 文件名， Base AOF 文件名的格式是 <code>&#123;appendfilename&#125;.&#123;seq&#125;.base.&#123;rdb/aof&#125;</code>。其中 <code>&#123;appendfilename&#125;</code> 部分是 appendfilename 配置项指定的文件名，<code>&#123;seq&#125;</code>部分是通过 aofManifest.curr_base_file_seq 自增得到的 Base AOF 文件编号，<code>base</code>是 Base AOF 文件的固定标识，<code>&#123;rdb/aof&#125;</code>文件后缀是根据生成 Base AOF 时使用的编码方式决定的，有 rdb 和 aof 两个可选值。在生成的 Base AOF 文件名的同时，Redis 还会将历史的 Base AOF 文件标记为 History 状态，具体操作是将对应的 aofInfo 实例，放到 aofManifest.history_aof_list 列表中，相应实现位于 getNewBaseFileNameAndMarkPreAsHistory() 函数中。</p>
+<p>确定 Base AOF 文件名之后，主进程将子进程 Rewrite 产生的 <code>temp-rewriteaof-bg-&#123;子进程 ID&#125;.aof</code> 临时文件重命名为刚刚生成的 Base AOF 文件名，这样，就真正拿到了最新的 Base AOF 文件。</p>
+<p>接下来，会根据 aof_state 的状态值，进入不同的分支进行处理。如果是 AOF_WAIT_REWRITE 状态，就是使用 CONFIG SET appendonly yes 命令的方式，开启 AOF 的场景，此时要生成一个新的 Incr AOF 文件名称，并对前面生成的 <code>temp-&#123;appendfilename&#125;.incr </code>临时文件进行 rename 操作，得到真正的 Incr AOF 文件，同时，还会将该 Incr AOF 文件对应的 aofInfo 实例添加到 incr_aof_list 列表维护。</p>
+<p>然后，将历史的 Incr AOF 文件标记的为 History 状态，具体操作是将 aofManifest.incr_aof_list 列表中，除了最后一个 aofInfo 实例之外的其他 aofInfo 实例，添加到 aofManifest.history_aof_list 列表中。相应实现位于 markRewrittenIncrAofAsHistory() 函数中。</p>
+<p>到这里，拷贝出来的临时 aofManifest 实例中，已经记录了最新的 Base AOF 文件以及 Incr AOF 文件的信息，下面执行 persistAofManifest() 函数进行 manifest 文件的写入。persistAofManifest() 函数写入思路和 Rewrite 的思路意义一样：它会先把临时 aofManifest 实例中的各条文件记录拼接成一个字符串，写入到一个 <code>temp-&#123;appendfilename&#125;.manifest</code> 临时文件，然后执行 redis_fsync() 函数把数据落盘，最后执行 rename 操作，将这个临时文件改成正式的 manifest 文件，文件名为<code>&#123;appendfilename&#125;.manifest</code> 。之所以使用这种临时文件+rename 的写入方式，是为了让整个写入看起来是原子性的，只有写入和 rename 都成功了，manifest 文件才是有效的，但凡其中一步出现失败，就只会生成一个临时 manifest 文件，对 Redis 来说是不可见的。</p>
+<p>完成各个 AOF 文件更新和 rename 操作之后，backgroundRewriteDoneHandler() 函数会更新 redisServer 实例中，与 AOF Rewrite 相关的几个字段，例如，aof_current_size、aof_rewrite_base_size 等字段记录新 Base AOF + 新 Incr AOF 的大小，aof_last_fsync 字段记录当前秒级时间戳，也就是此次 Rewrite 结束的时间戳，这些都是下次触发 Rewrite 操作时要检查的字段。</p>
+<p>最后，Redis 会执行 aofDelHistoryFiles() 函数，清理前面 History 类型的 AOF 文件，其中会迭代并删除 aofManifest.history_aof_list 列表中的每个文件，删除文件调用的是 unlink() 函数，删除完所有文件之后，会再执行一次 persistAofManifest() 函数，将 manifest 文件中 History AOF 文件的记录也清理掉。aofDelHistoryFiles() 函数是个清理历史文件的幂等操作，即使执行失败了也不会影响整个 AOF Rewrite 的收尾工作，会在下次 Rewrite 结束的时候，继续进行删除。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们重点对 AOF Rewrite 机制进行了详细的剖析。</p>
+<ul>
+<li>首先，我们对 AOF Rewrite 机制进行了概述，让小伙伴们对 AOF Rewrite 机制的大致工作流程有一个印象；</li>
+<li>然后，介绍了 AOF Rewrite 触发的时机；</li>
+<li>最后，我们详细分析了 AOF Rewrite 机制的核心流程，其中包括准备操作、写入数据的具体实现以及 AOF Rewrite 的收尾操作。</li>
+</ul>
+<p>到此为止，Redis 持久化的内容就全部介绍完了。在下一模块中，我们将从 Redis 主从同步入手，介绍 Redis 集群方面的内容。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC46%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOFRewrite%E6%9C%BA%E5%88%B6%E5%89%96%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC46%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9AAOFRewrite%E6%9C%BA%E5%88%B6%E5%89%96%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC49%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%BB%8E%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8B%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC40%E7%AB%A0%E2%80%94%E5%91%BD%E4%BB%A4%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9A%E4%BA%8B%E5%8A%A1%E5%91%BD%E4%BB%A4%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Rewrite-%E8%A7%A6%E5%8F%91%E6%97%B6%E6%9C%BA"><span class="toc-number">1.</span> <span class="toc-text">Rewrite 触发时机</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Rewrite-%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">Rewrite 核心实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%87%86%E5%A4%87%E6%93%8D%E4%BD%9C"><span class="toc-number">2.1.</span> <span class="toc-text">准备操作</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%86%99%E5%85%A5%E6%95%B0%E6%8D%AE"><span class="toc-number">2.2.</span> <span class="toc-text">写入数据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%94%B6%E5%B0%BE%E5%B7%A5%E4%BD%9C"><span class="toc-number">2.3.</span> <span class="toc-text">收尾工作</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

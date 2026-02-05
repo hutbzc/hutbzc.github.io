@@ -1,0 +1,285 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="分析完写入 RDB 文件的格式以及 RDB 持久化的核心实现之后，我们回到触发 RDB 持久化的地方会发现，除了 SAVE 命令之外，其他 rdbSave() 函数调用都是来自 rdbSaveBackground() 函数，如下图调用栈所示：  rdbSaveBackground() 函数的核心在于，使用 fork() 调用创建一个子进程，并在子进程中调用rdbSave() 函数，完成后台的 RD">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC43%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9A%E5%90%8E%E5%8F%B0RDB%E6%8C%81%E4%B9%85%E5%8C%96/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="分析完写入 RDB 文件的格式以及 RDB 持久化的核心实现之后，我们回到触发 RDB 持久化的地方会发现，除了 SAVE 命令之外，其他 rdbSave() 函数调用都是来自 rdbSaveBackground() 函数，如下图调用栈所示：  rdbSaveBackground() 函数的核心在于，使用 fork() 调用创建一个子进程，并在子进程中调用rdbSave() 函数，完成后台的 RD">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.708Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.709Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC43%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9A%E5%90%8E%E5%8F%B0RDB%E6%8C%81%E4%B9%85%E5%8C%96/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.708Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.709Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>分析完写入 RDB 文件的格式以及 RDB 持久化的核心实现之后，我们回到触发 RDB 持久化的地方会发现，除了 SAVE 命令之外，其他 rdbSave() 函数调用都是来自 rdbSaveBackground() 函数，如下图调用栈所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4586afe51fcf461b987d30b0204bda4d~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p><strong>rdbSaveBackground() 函数的核心在于，使用 fork() 调用创建一个子进程，并在子进程中调用rdbSave() 函数，完成后台的 RDB 持久化操作</strong>。在 redisServer 中有一个 child_pid 字段，它用来记录当前 Redis 创建的子进程 id，这个子进程可以是用来进行 RDB 持久化的，也可以用来做 AOF Rewrite 操作的，或是其他 Module 需要的后台操作。但是，Redis 同一时刻只能有一个子进程，这个子进程的 id 会被记录到 child_pid 字段中。</p>
+<h2 id="创建-RDB-子进程"><a href="#创建-RDB-子进程" class="headerlink" title="创建 RDB 子进程"></a>创建 RDB 子进程</h2><p>下面我们就先来看看用于 RDB 持久化的子进程是怎么创建出来的，下面是 rdbSaveBackground() 函数的核心逻辑。</p>
+<p>它首先会调用 hasActiveChildProcess() 函数来检查 server.child_pid 字段，如果不为 0，表示已经有子进程在运行了，就会立刻异常返回。如果当前没有子进程启动，就调用 redisFork() 函数，其核心是通过 fork() 系统调用创建子进程。相信熟悉 Linux 系统的朋友都知道，通过 fork() 创建出来的子进程与父进程运行在不同的内存空间中，在子进程刚刚创建出来时（即 fork() 调用结束时），父子进程的内存数据完全相同，宛如拷贝了一份，后续父子线程对内存操作以及文件的映射都是在各自的内存中完成的，两者不会相互影响。正是由于这一<code>“宛如拷贝”</code>的特性，Redis 可以在子进程的内存空间中，安全地把数据写入到 RDB 文件中，与此同时，父进程也可以继续对自己的内存进行读写操作，做到不阻塞父进程的命令执行，也不干扰子进程的 RDB 文件生成。</p>
+<p>我们回到 rdbSaveBackground() 函数的实现，在 redisFork() 调动结束之后，子进程拿到的 childpid 是 0 ，也就会开始执行 if 分支内的逻辑，父进程拿到的 childpid 不是 0 （是子进程的进程号），也就会进入 else 分支。通过代码可以看出，子进程调用前文介绍的 rdbSave() 函数开始 RDB 持久化操作，父进程则是记录一些 RDB 持久化子进程启动时间、对应的子进程类型等信息，之后，父进程就会从 rdbSaveBackground() 函数退出，继续处理客户端的命令。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">rdbSaveBackground</span><span class="params">(<span class="type">char</span> *filename, rdbSaveInfo *rsi)</span> &#123;</span><br><span class="line">    <span class="type">pid_t</span> childpid;</span><br><span class="line">    <span class="comment">// 检查server.child_pid,如果不为0，表示已经有子进程存在，这里直接返回异常</span></span><br><span class="line">    <span class="keyword">if</span> (hasActiveChildProcess()) <span class="keyword">return</span> C_ERR;</span><br><span class="line">    </span><br><span class="line">    server.dirty_before_bgsave = server.dirty; <span class="comment">// 暂存主进程的dirty字段</span></span><br><span class="line">    server.lastbgsave_try = time(<span class="literal">NULL</span>); <span class="comment">// 记录最近一次bgsave的尝试时间</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((childpid = redisFork(CHILD_TYPE_RDB)) == <span class="number">0</span>) &#123; <span class="comment">// 子进程执行该分支</span></span><br><span class="line">        redisSetProcTitle(<span class="string">&quot;redis-rdb-bgsave&quot;</span>); <span class="comment">// 修改子进程的名称</span></span><br><span class="line">        <span class="type">int</span> retval = rdbSave(filename,rsi); <span class="comment">// 调用rdbSave()函数进行RDB持久化</span></span><br><span class="line">        <span class="keyword">if</span> (retval == C_OK) &#123; <span class="comment">// RDB文件创建成功，通知主进程</span></span><br><span class="line">            sendChildCowInfo(CHILD_INFO_TYPE_RDB_COW_SIZE, <span class="string">&quot;RDB&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        exitFromChild((retval == C_OK) ? <span class="number">0</span> : <span class="number">1</span>); <span class="comment">// 使用_exit()退出子进程</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// 父进程执行该分支</span></span><br><span class="line">        <span class="comment">// 更新rdb_save_time_start字段，记录RDB持久化的启动时间</span></span><br><span class="line">        server.rdb_save_time_start = time(<span class="literal">NULL</span>);</span><br><span class="line">        <span class="comment">// rdb_child_type字段记录了此次生成的RDB文件是写入到磁盘上的还是发送给从节点的</span></span><br><span class="line">        server.rdb_child_type = RDB_CHILD_TYPE_DISK; </span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> C_OK; <span class="comment">/* unreached */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>虽然父子进程内存中的数据互不影响，就像拷贝了一份一样，但是如果 fork() 调用真的拷贝了整个父进程的内存，对于 Redis 来说是不可接受的，主要体现在两个方面：一个是 Redis 服务占用的内存将会翻倍，另一个是 fork() 调用要拷贝整个内存，耗时会很长，阻塞主线程执行其他命令，整个 Redis 就不可用了。</p>
+<p>Redis 之所以还是使用 fork() 来创建子进程，是因为 <strong>fork 出来的子进程使用了 Copy-on-Write 的方式进行内存拷贝，而非全量内存拷贝</strong>。Copy-on-Write 的原理是将内存拷贝操作推迟到内存真正发生修改时再进行，那些父子进程完全相同的内存页，实际上只有一份，这也就避免了无意义的拷贝操作。通过前文介绍的 RDB 文件写入过程我们也知道，这里启动的子进程只会读取内存，不会进行任何修改，所以只有在父进程执行修改命令的时候，才会触发 Copy-on-Write 操作。从另一个角度看，Redis 多数被应用到读多写少的场景中，也就使得 Copy-on-Write 机制更大程度地发挥作用。注意，Copy-On-Write 的最小单位内存页，而不是键值对。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f636967836634e9d8bf6e5b405d609c0~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>了解完 fork() 系统调用的原理之后，我们到 redisFork() 函数中，详细分析一下其核心逻辑。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">redisFork</span><span class="params">(<span class="type">int</span> purpose)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (isMutuallyExclusiveChildType(purpose)) &#123;</span><br><span class="line">        <span class="comment">// 1、首先会检查此次启动子进程的目的，如果是用于 RDB 持久化，则会启动一个 pipe 用于父子进程通信</span></span><br><span class="line">        openChildInfoPipe();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> childpid;</span><br><span class="line">    <span class="comment">// 2、通过fork()系统调用创建子进程</span></span><br><span class="line">    <span class="keyword">if</span> ((childpid = fork()) == <span class="number">0</span>) &#123; <span class="comment">// 子进程执行的分支</span></span><br><span class="line">        server.in_fork_child = purpose;</span><br><span class="line">        setupChildSignalHandlers(); <span class="comment">// 注册信号回调</span></span><br><span class="line">        setOOMScoreAdj(CONFIG_OOM_BGCHILD);</span><br><span class="line">        dismissMemoryInChild();</span><br><span class="line">        <span class="comment">// 释放一些使用不到的网络资源和文件</span></span><br><span class="line">        closeChildUnusedResourceAfterFork();</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// 父进程执行的分支</span></span><br><span class="line">        <span class="comment">// 它会更新一些统计信息，例如，fork() 调用的次数（记录到 redisServer.stat_total_forks 字段）、</span></span><br><span class="line">        <span class="comment">// 耗时（记录到 redisServer.stat_fork_time 字段）等等。</span></span><br><span class="line">        server.stat_total_forks++;</span><br><span class="line">        server.stat_fork_time = ustime()-start;</span><br><span class="line">        server.stat_fork_rate = (<span class="type">double</span>) zmalloc_used_memory() * <span class="number">1000000</span> / server.stat_fork_time / (<span class="number">1024</span>*<span class="number">1024</span>*<span class="number">1024</span>); <span class="comment">/* GB per second. */</span></span><br><span class="line">        latencyAddSampleIfNeeded(<span class="string">&quot;fork&quot;</span>,server.stat_fork_time/<span class="number">1000</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (isMutuallyExclusiveChildType(purpose)) &#123;</span><br><span class="line">            <span class="comment">// 还会更新 server 中子进程相关的字段，例如，子进程的进程号（对应 redisServer.child_pid 字段）、</span></span><br><span class="line">            <span class="comment">// 当前子进程的目的（对应 redisServer.child_type 字段）以及 Copy-on-Write 相关的统计信息</span></span><br><span class="line">            server.child_pid = childpid;</span><br><span class="line">            server.child_type = purpose;</span><br><span class="line">            server.stat_current_cow_peak = <span class="number">0</span>;</span><br><span class="line">            server.stat_current_cow_bytes = <span class="number">0</span>;</span><br><span class="line">            server.stat_current_cow_updated = <span class="number">0</span>;</span><br><span class="line">            server.stat_current_save_keys_processed = <span class="number">0</span>;</span><br><span class="line">            server.stat_module_progress = <span class="number">0</span>;</span><br><span class="line">            server.stat_current_save_keys_total = dbTotalServerKeyCount();</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        updateDictResizePolicy();</span><br><span class="line">        moduleFireServerEvent(REDISMODULE_EVENT_FORK_CHILD,</span><br><span class="line">                              REDISMODULE_SUBEVENT_FORK_CHILD_BORN,</span><br><span class="line">                              <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> childpid;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>redisFork() 函数首先会检查此次启动子进程的目的，如果是用于 RDB 持久化，则会启动一个 pipe 用于父子进程通信（父子进程通信的事情我们后面展开说）。</p>
+</li>
+<li><p>接下来，通过 fork() 系统调用创建子进程。父子进程根据 fork() 函数的返回值进入不同的分支。</p>
+</li>
+<li><p>先看<code>子进程执行的分支</code>，它会设置 SIGUSR1 信号的回调函数 sigKillChildHandler()，其中的逻辑会终止子进程，我们可以在 killRDBChild() 函数中看到，父进程向子进程发送 SIGUSR1 信号的逻辑：</p>
+</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">killRDBChild</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    kill(server.child_pid, SIGUSR1); <span class="comment">// 终止子进程</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如下图所示，killRDBChild() 函数在清空 redisDb （flushAllDataAndResetRDB() 函数）、Redis 正常停机（prepareForShutdown() 函数）等流程中都有调用：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/5d60d8114ad048ba93f3aa0049670fba~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这里启动的子进程，只用于 RDB 持久化，不会做主进程要做的一些事情，所以可以释放一些使用不到的网络资源和文件，例如，子进程自己的 redisServer.ipfd 连接。这部分逻辑位于 closeChildUnusedResourceAfterFork() 函数，感兴趣的同学可以参考代码进行分析。</p>
+<ol start="4">
+<li>再来看<code>父进程执行的分支</code>，它会更新一些统计信息，例如，fork() 调用的次数（记录到 redisServer.stat_total_forks 字段）、耗时（记录到 redisServer.stat_fork_time 字段）等等。还会更新 server 中子进程相关的字段，例如，子进程的进程号（对应 redisServer.child_pid 字段）、当前子进程的目的（对应 redisServer.child_type 字段）以及 Copy-on-Write 相关的统计信息。</li>
+</ol>
+<h2 id="父子进程通信"><a href="#父子进程通信" class="headerlink" title="父子进程通信"></a>父子进程通信</h2><p>在 redisFork() 函数里有一个小细节，就是<strong>调用 openChildInfoPipe() 函数打开一个父子进程通信的管道</strong>，下面我们就展开说说父子进行通信的事情。</p>
+<p>在 openChildInfoPipe() 函数中，会调用 pipe() 这个系统函数来创建一个管道，管道创建后得到的两个文件描述符会记录到 redisServer.child_info_pipe 数组中，这个数组是一个长度为 2 的 int 类型的数组，子进程会向 child_info_pipe[1] 中记录的文件描述符写入数据，父进程从 child_info_pipe[0] 中记录的文件描述符读取数据，这样就实现了父子进程的交互。大概的模型如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d42a9994ffc648eda3b00f0e037b7165~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>我们可以在 sendChildInfoGeneric() 函数中看到向管道中写入数据的逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">sendChildInfoGeneric</span><span class="params">(childInfoType info_type, <span class="type">size_t</span> keys, <span class="type">double</span> progress, <span class="type">char</span> *pname)</span> &#123;</span><br><span class="line">    <span class="comment">// 初始化child_info_data</span></span><br><span class="line">    child_info_data data = &#123;<span class="number">0</span>&#125;; </span><br><span class="line">    ... <span class="comment">// 省略更新child_info_data数据的逻辑</span></span><br><span class="line">    <span class="comment">// 将child_info_data实例写入server.child_info_pipe[1]管道中</span></span><br><span class="line">    <span class="keyword">if</span> (write(server.child_info_pipe[<span class="number">1</span>], &amp;data, wlen) != wlen) &#123;...&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 receiveChildInfo() 函数中，我们可以看到从管道中读取数据的逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">receiveChildInfo</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line">    <span class="comment">// readChildInfo()函数中会从server.child_info_pipe[0]读取</span></span><br><span class="line">    <span class="keyword">while</span> (readChildInfo(&amp;information_type, &amp;cow, &amp;cow_updated, </span><br><span class="line">            &amp;keys, &amp;progress)) &#123;</span><br><span class="line">        <span class="comment">// 根据读取到的数据，更新server的对应字段</span></span><br><span class="line">        updateChildInfo(information_type, cow, cow_updated, keys, progress);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从下图的调用栈中可以看出，向管道写入数据的逻辑是在 rdbSaveRio() 以及 rdbSaveBackground() 中完成的，其中 rdbSaveRio() 会在每持久化 1024 个 Key 时，通知主进程 RDB 持久化的进度（两次通知间隔超过），在 rdbSaveBackground() 函数中是在整个 RDB 持久化完成时，通知主进程。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/775e92bb8d9e4858b67a0cf6222048e8~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>从管道里面读取数据的逻辑是在 serverCron() 函数中触发的，serverCron() 函数会每隔 1 秒调用一次 receiveChildInfo() 函数读取子进程发来的信息，并更新相应统计字段。</p>
+<p>那父子进程中传递的数据是什么呢？我们来看 child_info_data 结构体，如下所示，child_info_data 结构体主要包含了子进程发给父进程的一些信息，其中的 keys 字段记录了当前已经写入到 RDB 文件的 Key 个数，cow 字段记录了发生 Copy-on-Write 的字节数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">    <span class="type">size_t</span> keys; <span class="comment">// 写入Key个数</span></span><br><span class="line">    <span class="type">size_t</span> cow; <span class="comment">// COW字节数</span></span><br><span class="line">    monotime cow_updated;</span><br><span class="line">    <span class="type">double</span> progress;</span><br><span class="line">    childInfoType information_type; </span><br><span class="line">&#125; child_info_data;</span><br></pre></td></tr></table></figure>
+
+
+
+<p>这里我们重点展开介绍一下 cow 字段值的获取过程，Linux 系统会为每个进程维护了一个 <code>/proc/&#123;pid&#125;/smaps</code> 文件，通过这个文件，我们可以看到一个进程映射的内存区域以及这个区域的使用情况，其中会记录下面的内容。</p>
+<ul>
+<li><p>size：是进程使用内存空间，并不一定实际分配了物理内存。</p>
+</li>
+<li><p>Rss：实际驻留“在内存中”的内存数，不包括已经交换出去的内存页。RSS 还包括了与其他进程共享的内存区域，通常用于共享库。</p>
+</li>
+<li><p>Pss：Private Rss， Rss 中私有的内存页。</p>
+</li>
+<li><p>Shared_Clean：Rss 中和其他进程共享的未改写内存页。</p>
+</li>
+<li><p>Shared_Dirty：Rss 中和其他进程共享的已改写内存页。</p>
+</li>
+<li><p>Private_Clean：Rss 中改写的私有内存页。</p>
+</li>
+<li><p>Private_Dirty：Rss 中已改写的私有内存页，如果出现换页，该页的内容需要写回磁盘。</p>
+</li>
+</ul>
+<p>子进程就是通过读取 &#x2F;proc&#x2F;{pid}&#x2F;smaps 文件，遍历每个内存区域并累计其中的 Private_Dirty 值，进而确定发生 Copy-on-Write 的字节数。这部分逻辑位于 zmalloc_get_smap_bytes_by_field() 函数中，感兴趣的同学可以分析一下其中读取 &#x2F;proc&#x2F;{pid}&#x2F;smaps 文件的逻辑。</p>
+<p>说完子进程发送的关键数据来源之后，我们再来看父进程从管道读取到数据之后都做了什么。</p>
+<p><strong>主进程会在 serverCron() 中，定时读取子进程发来的统计信息，还会定时检查子进程是否已经结束</strong>，相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (hasActiveChildProcess() || ldbPendingChildren()) &#123; <span class="comment">// 子进程存在</span></span><br><span class="line">    <span class="comment">// 从管道中读取数据，并更新统计信息。主要更新的是stat_current_cow_bytes、</span></span><br><span class="line">    <span class="comment">// stat_current_save_keys_processed、stat_current_cow_updated等字段，</span></span><br><span class="line">    <span class="comment">// 记录了Copy-On-Write涉及到的字节数以及RDB持久化的进度</span></span><br><span class="line">    run_with_period(<span class="number">1000</span>) receiveChildInfo(); </span><br><span class="line">    checkChildrenDone(); <span class="comment">// 检查子进程是否结束</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>检查子进程是否结束的逻辑位于 checkChildrenDone() 函数中，其核心实现如下，我们可以看到，它主要是通过 waitpid() 函数实现的，下面的注释对 waitpid() 函数进行了详细说明，在发现子进程结束时，会调用 backgroundSaveDoneHandler() 函数进行处理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">checkChildrenDone</span><span class="params">(<span class="type">void</span>)</span> &#123;</span><br><span class="line">    <span class="type">int</span> statloc = <span class="number">0</span>;</span><br><span class="line">    <span class="type">pid_t</span> pid;</span><br><span class="line">    <span class="comment">// 如果pid(第一个参数)指定的子进程没有结束，则waitpid()会阻塞等待，但是这里使用</span></span><br><span class="line">    <span class="comment">// 了WNOHANG配置，此时waitpid()函数会立即返回0，而不是阻塞等待。如果子进程结束了，</span></span><br><span class="line">    <span class="comment">// 则返回该子进程的进程号。如果第一个参数为-1，则表示waitpid()函数会等待任意子进程结束</span></span><br><span class="line">    <span class="keyword">if</span> ((pid = waitpid(<span class="number">-1</span>, &amp;statloc, WNOHANG)) != <span class="number">0</span>) &#123;</span><br><span class="line">        ... <span class="comment">// 省略其他类型子进程的结束逻辑</span></span><br><span class="line">        <span class="keyword">if</span> (pid == server.child_pid) &#123; </span><br><span class="line">            <span class="keyword">if</span> (server.child_type == CHILD_TYPE_RDB) &#123;</span><br><span class="line">                <span class="comment">// 执行回调逻辑</span></span><br><span class="line">                backgroundSaveDoneHandler(exitcode, bysignal);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        ... <span class="comment">// 省略其他异常结束的分支</span></span><br><span class="line">     &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>其实，RDB 持久化有两种情况，一种是我们前面一直说的，把 RDB 数据写入到本地磁盘，还有一种就是把 RDB 数据写入到 Socket 连接里面。</p>
+<p>在这两种情况结束的时候，都会走 backgroundSaveDoneHandler() 处理，这里我们关注其中对写本地文件场景的处理，也就是 backgroundSaveDoneHandlerDisk() 函数，其中会更新 redisServer 的 rdb_save_time_last、lastbgsave_status 字段记录最近一次 RDB 持久化的时间戳和结果（是否持久化成功），还会更新 dirty 字段。如果 RDB 子进程是被 SIGUSR1 等信号主动结束的，backgroundSaveDoneHandlerDisk() 会向后台线程提交一个文件删除任务，将 RDB 子进程写了一般的 rdb 临时文件删除掉，具体代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">void</span> <span class="title function_">backgroundSaveDoneHandlerDisk</span><span class="params">(<span class="type">int</span> exitcode, <span class="type">int</span> bysignal)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (!bysignal &amp;&amp; exitcode == <span class="number">0</span>) &#123; <span class="comment">// RDB持久化子进程正常结束</span></span><br><span class="line">        <span class="comment">// rdbSaveBackground()中在子进程启动的时候，使用dirty_before_bgsave记录了当时的</span></span><br><span class="line">        <span class="comment">// dirty值，子进程会将RDB持久化之前的全部变更都已经持久化到了RDB文件中，在RDB持久化过程中</span></span><br><span class="line">        <span class="comment">// 的修改会导致主进程的dirty值继续递增，所以在子进程结束的时候，会进行dirty的更新</span></span><br><span class="line">        server.dirty = server.dirty - server.dirty_before_bgsave;</span><br><span class="line">        server.lastsave = time(<span class="literal">NULL</span>);</span><br><span class="line">        server.lastbgsave_status = C_OK;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!bysignal &amp;&amp; exitcode != <span class="number">0</span>) &#123; <span class="comment">// RDB持久化子进程正常结束，异常结束</span></span><br><span class="line">        serverLog(LL_WARNING, <span class="string">&quot;Background saving error&quot;</span>);</span><br><span class="line">        server.lastbgsave_status = C_ERR;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// RDB持久化子进程被SIGUSR1信号结束的</span></span><br><span class="line">        <span class="type">mstime_t</span> latency;</span><br><span class="line">        latencyStartMonitor(latency);</span><br><span class="line">        <span class="comment">// 提交删除rdb临时文件的后台任务</span></span><br><span class="line">        rdbRemoveTempFile(server.child_pid, <span class="number">0</span>);</span><br><span class="line">        latencyEndMonitor(latency);</span><br><span class="line">        latencyAddSampleIfNeeded(<span class="string">&quot;rdb-unlink-temp-file&quot;</span>,latency);</span><br><span class="line">        <span class="keyword">if</span> (bysignal != SIGUSR1)</span><br><span class="line">            server.lastbgsave_status = C_ERR;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="Copy-On-Write-相关优化"><a href="#Copy-On-Write-相关优化" class="headerlink" title="Copy-On-Write 相关优化"></a>Copy-On-Write 相关优化</h2><p>通过前面的介绍我们知道，Redis 使用子进程进行 RDB 持久化不会造成整个内存占用量翻倍的原因，是系统使用 Copy-On-Write 技术。但是，如果 Redis 是使用在写非常多的场景里面，Copy-On-Write 带来的好处就有所减少，因为父进程修改的内存页，在内存中会有两份，写操作多了，这种页面也就多了，也就会导致 Redis 的内存占用量增加。</p>
+<p>这个时候，Redis 从另一个角度去优化子进程中的 RDB 持久化操作：<strong>释放一些子进程不要再使用的内存页</strong>。举个例子，在子进程进行 RDB 持久化的时候，一个内存页出现了 Copy-On-Write 的情况，在子进程把这个内存页中全部的键值对都持久化到了 RDB 文件之后，子进程其实就没有必要继续持有这个内存页了，只需主进程保留该内存页的最新拷贝即可，所以也就有了<a target="_blank" rel="noopener" href="https://github.com/redis/redis/pull/8974">这个 PR</a> 的优化。</p>
+<p>在 8974 这个 PR 里面，使用 Linux 的 madvise() 调用来释放一个内存页，在前面分析的时候我们知道，rdbSaveDb() 函数会将一个 redisDb 中的全部键值对都持久化到 RDB 文件中，在这个过程中，就会同时尝试释放掉子进程持有的内存页，相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">ssize_t</span> <span class="title function_">rdbSaveDb</span><span class="params">(rio *rdb, <span class="type">int</span> dbid, <span class="type">int</span> rdbflags, <span class="type">long</span> *key_counter)</span> &#123;</span><br><span class="line">    ... <span class="comment">// 省略写入redisDb编号、键值对数据量等信息的逻辑</span></span><br><span class="line">    <span class="keyword">while</span>((de = dictNext(di)) != <span class="literal">NULL</span>) &#123;</span><br><span class="line">        ... <span class="comment">//省略读取键值对的逻辑</span></span><br><span class="line">        <span class="comment">// 调用rdbSaveKeyValuePair()函数，持久化键值对</span></span><br><span class="line">        <span class="keyword">if</span> ((res = rdbSaveKeyValuePair(rdb, &amp;key, o, expire, dbid)) &lt; <span class="number">0</span>) <span class="keyword">goto</span> werr;</span><br><span class="line">        written += res;</span><br><span class="line">        <span class="comment">// 关键在这里！！！这里会计算此次写入键值对大小，然后通过dismissObject来释放子进程中的内存页</span></span><br><span class="line">        <span class="type">size_t</span> dump_size = rdb-&gt;processed_bytes - rdb_bytes_before_key;</span><br><span class="line">        <span class="keyword">if</span> (server.in_fork_child) dismissObject(o, dump_size);</span><br><span class="line">        ... <span class="comment">// 省略子进程给父进程发送统计信息的逻辑</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> written;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>dismissObject() 函数底层会针对不同的类型进行分类处理，如下图调用栈所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f32f5fc8a33a4cf2bdee847a5b0ac853~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>下面我们以 dismissListObject() 释放 quicklist 为例进行简单分析。在 dismissListObject() 函数中，会检查 quicklist 节点的平均大小是否超过了一个内存页的大小（默认是 4K），如果超过了，就会走 dismissMemory() 函数进行释放，dismissMemory() 底层就是调用 Linux 的 madvise() 系统调用释放内存的，核心代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">dismissListObject</span><span class="params">(robj *o, <span class="type">size_t</span> size_hint)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (o-&gt;encoding == OBJ_ENCODING_QUICKLIST) &#123;</span><br><span class="line">        quicklist *ql = o-&gt;ptr;</span><br><span class="line">        serverAssert(ql-&gt;len != <span class="number">0</span>);</span><br><span class="line">        <span class="comment">// 检查quicklistNode节点的平均大小，是不是超过了内存页的大小，</span></span><br><span class="line">        <span class="comment">// 只有超过了内存页大小，才会进行优化</span></span><br><span class="line">        <span class="keyword">if</span> (size_hint / ql-&gt;len &gt;= server.page_size) &#123;</span><br><span class="line">            quicklistNode *node = ql-&gt;head;</span><br><span class="line">            <span class="keyword">while</span> (node) &#123;</span><br><span class="line">                <span class="comment">// 尝试释放单个quicklistNode节点占用的内存页</span></span><br><span class="line">                <span class="keyword">if</span> (quicklistNodeIsCompressed(node)) &#123;</span><br><span class="line">                    dismissMemory(node-&gt;entry, ((quicklistLZF*)node-&gt;entry)-&gt;sz);</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    dismissMemory(node-&gt;entry, node-&gt;sz);</span><br><span class="line">                &#125;</span><br><span class="line">                node = node-&gt;next;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        serverPanic(<span class="string">&quot;Unknown list encoding type&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>这里有两点需要注意。</p>
+<p>第一点是这里使用的 madvise() 系统调用中，传入了 MADV_DONTNEED 这个 flags，它的意思是，告诉操作系统当前进程不再需要这个内存页了，操作系统可以把它标记成“未分配”，后面有其他进程需要这块内存页的话，可以进行分配，相应地，进程的 RSS 值会立刻下降。</p>
+<p>第二点是要使用 madvise 这个优化，我们需要关闭系统的 Transparent huge page 配置，<a target="_blank" rel="noopener" href="https://redis.io/docs/reference/optimization/latency/#ive-little-time-give-me-the-checklist">这个 Redis 官方文档中，也提供了相应的操作建议</a>。在 dismissObject() 函数中也可以看到 THP 配置和 madvise() 优化互斥的判断：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">dismissObject</span><span class="params">(robj *o, <span class="type">size_t</span> size_hint)</span> &#123;</span><br><span class="line">    <span class="comment">// 开启了系统开启THP的话，madvise(MADV_DONTNEED)优化就不会被使用</span></span><br><span class="line">    <span class="keyword">if</span> (server.thp_enabled) <span class="keyword">return</span>;</span><br><span class="line">    ... <span class="comment">// 省略针对各个类型，调用不同dismiss*()函数的逻辑</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>在很多数据库产品里面，比如，Redis、Couchbase、TiDB 等等，都是建议关闭 THP 的，主要是因为 THP 在数据库这个场景中，会导致性能波动。THP 本身的一些特性和问题，已经超出了我们的讨论范围，如果小伙伴想深入了解 THP 特性，需要有一定的 Linux 内存管理的知识，可以从 <a target="_blank" rel="noopener" href="https://cn.pingcap.com/blog/why-should-we-disable-thp">PingCAP 的这篇文章看起</a>，之后再自行扩展。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这一节中，我们重点介绍了 RDB 持久化在后台执行的相关原理。首先，我们介绍了 Redis 创建子进程的核心逻辑，然后介绍了父子进程如何通过 pipeline 进行通信的关键，最后介绍了 Redis 针对 Copy-On-Write 的一些优化措施和建议。</p>
+<p>下一节中，我们会来介绍 Redis 另一种持久化方式 —— AOF 持久化的内容。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC43%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9A%E5%90%8E%E5%8F%B0RDB%E6%8C%81%E4%B9%85%E5%8C%96/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC43%E7%AB%A0%E2%80%94%E6%8C%81%E4%B9%85%E5%AD%98%E5%82%A8%E7%AF%87%EF%BC%9A%E5%90%8E%E5%8F%B0RDB%E6%8C%81%E4%B9%85%E5%8C%96/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC39%E7%AB%A0%E2%80%94%E5%91%BD%E4%BB%A4%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ASortedSet%E5%91%BD%E4%BB%A4%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC34%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedisKey%E7%9A%84%E8%BF%87%E6%9C%9F%E4%B8%8E%E5%88%A0%E9%99%A4/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-RDB-%E5%AD%90%E8%BF%9B%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">创建 RDB 子进程</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%88%B6%E5%AD%90%E8%BF%9B%E7%A8%8B%E9%80%9A%E4%BF%A1"><span class="toc-number">2.</span> <span class="toc-text">父子进程通信</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Copy-On-Write-%E7%9B%B8%E5%85%B3%E4%BC%98%E5%8C%96"><span class="toc-number">3.</span> <span class="toc-text">Copy-On-Write 相关优化</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

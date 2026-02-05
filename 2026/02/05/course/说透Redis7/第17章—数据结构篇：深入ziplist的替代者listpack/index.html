@@ -1,0 +1,404 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="在前面三讲中，我们已经详细介绍了 ziplist 的核心结构以及核心操作，你会发现 ziplist 是一种比较复杂的结构，所以在 Redis 5.0 就引入了 listpack 这个更简单的结构来对标 ziplist。在前面介绍 Redis 7.0 Release Note 说过，从 Redis 7.0 开始，完全使用 listpack 替换 ziplist 了。 这一节我们就来说说 listpa">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC17%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E7%9A%84%E6%9B%BF%E4%BB%A3%E8%80%85listpack/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="在前面三讲中，我们已经详细介绍了 ziplist 的核心结构以及核心操作，你会发现 ziplist 是一种比较复杂的结构，所以在 Redis 5.0 就引入了 listpack 这个更简单的结构来对标 ziplist。在前面介绍 Redis 7.0 Release Note 说过，从 Redis 7.0 开始，完全使用 listpack 替换 ziplist 了。 这一节我们就来说说 listpa">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.703Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.704Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC17%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E7%9A%84%E6%9B%BF%E4%BB%A3%E8%80%85listpack/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.703Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.704Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>在前面三讲中，我们已经详细介绍了 ziplist 的核心结构以及核心操作，你会发现 ziplist 是一种比较复杂的结构，所以在 Redis 5.0 就引入了 listpack 这个更简单的结构来对标 ziplist。在前面介绍 Redis 7.0 Release Note 说过，<strong>从 Redis 7.0 开始，完全使用 listpack 替换 ziplist 了</strong>。</p>
+<p>这一节我们就来说说 listpack。</p>
+<h2 id="listpack-核心结构"><a href="#listpack-核心结构" class="headerlink" title="listpack 核心结构"></a>listpack 核心结构</h2><p>listpack 说白了，跟 ziplist 差不多，也是<strong>一块连续的内存空间</strong>，但是呢，listpack 没有 ziplist 那么复杂的内部结构。</p>
+<p>listpack 之所以会出现，是因为用户上报的一个 Redis 崩溃问题，但是 Redis 的代码维护者并没有找到崩溃的明确原因，猜测可能是 ziplist 复杂的连锁更新操作导致的，希望设计一种简单点的、能够替换 ziplist 的紧凑型数据结构。</p>
+<p>下面这张图是 listpack 结构，它和 ziplist 的结构很类似，也是分为头、中、尾三部分。先来看头、尾两部分：头部里面的 tot-bytes 占了 4 个字节，存了 listpack 占用的总字节数，num-elements 占用 2 个字节，存了这个 listpack 里面的元素个数；尾部是一个字节的 end-byte，它的值始终是 255。</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/73b4a04f02764c54bacb57fff7ff12c2~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<blockquote>
+<p>ziplist 内心 OS：这不是一样的吗？这样也能赚到钱！报警吧！</p>
+</blockquote>
+<p>接下来我们就一起看下 listpack 里面 <code>element</code> 的结构，里面分了 encoding-type、data、backlen 三部分。</p>
+<p><strong>encoding-type 存的是 element-data 部分的编码类型和长度</strong>。和 ziplist entry 的类似，encoding-type 也是个变长的结构。</p>
+<ul>
+<li>0xxx xxxx：encoding-type 第一位是 0 的话，data 就是一个 7 位的无符号整数，encoding-type 和 data 会合并成一个字节，这个字节的后 7 位存的就是 data 部分。</li>
+</ul>
+<!---->
+
+<ul>
+<li>10xx xxxx：encoding-type 前 2 位是 10 的话，表示 data 是一个字符串，encoding-type 的低 6 位表示字符串的字节数，也就是说，data 字符串最长为 63 个字节。紧跟在 encoding-type 字节之后的，就是 data 字符串。</li>
+</ul>
+<!---->
+
+<ul>
+<li>110x xxxx：encoding-type 前 3 位是 110 的话，表示 data 是一个整数，encoding-type 的低 5 位以及下一个字节的 8 位，总共 13 位，共同来表示 data 这个整数值。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1110 xxxx：encoding-type 前 4 位是 1110 的话，表示 data 是一个字符串，encoding-type 的低 4 位以及下一个字节的 8 位共同表示字符串的长度，也就是说，data 字符串最长就是 4095 个字节了。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0000：encoding-type 的值是 0xF0 的话，表示后面跟的 4 个字节表示字符串的长度，data 字符串最长 2^32 -1 个字节。紧跟字符串长度之后的部分，就是 data 字符串了。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0001：encoding-type 是 0xF1 话，表示 data 是一个 16 位的整型，encoding-type 后面紧跟的 2 个字节用来存 data 的具体值。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0010：encoding-type 是 0xF2 话，表示 data 是一个 24 位的整型，encoding-type 后面紧跟的 3 个字节用来存 data 的具体值。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0011：encoding-type 是 0xF3 话，表示 data 是一个 32 位的整型，encoding-type 后面紧跟的 4 个字节用来存 data 的具体值。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0100：encoding-type 是 0xF4 话，表示 data 是一个 64 位的整型，encoding-type 后面紧跟的 8 个字节用来存 data 的具体值。</li>
+</ul>
+<!---->
+
+<ul>
+<li>1111 0101 到 1111 1110 的 encoding-type 值目前还未使用。</li>
+</ul>
+<p>最后要说的是 <strong>backlen</strong> 部分，它存了当前这个 element 的总长度，这个总长度包含了的是 encoding-type 长度加上 data 部分的长度，不包含 backlen 自身的长度哈。</p>
+<p>之所以有这个 backlen 存在，就和 ziplist 里面的 prevlen 一样，主要是<code>为了支持从后向前遍历 listpack </code>。backlen 是一个变长的部分，最多占用 5 个字节。backlen 里面每个字节的第一位都是标识符，如果是 0 的话，就表示这个字节是 backlen 部分的最后一个字节；如果是 1 的话，就不是。也就是说，每个字节的剩余 7 位才携带有效信息。</p>
+<p>举个例子，我要在 backlen 里面存 500 这个值 ，其对应的二进制是这个值 0000 0001 1111 0100，将每 7 位切分一次，得到这个值 x0000011 x1110100，然后最高位加个 x，表示的是该字节第一位的标识符。因为 backlen 是<code>从右向左</code>读取的，所以高位字节应该在右边，我们给它翻转一下，就是这个值了 x1110100 x0000011，最后，补全各个字节中的标识符，得到完整的 backlen 值 11110100 00000011。</p>
+<p>其实呢，**<code>backlen 就是 listpack 和 ziplist 不一样的地方</code>，虽然都是为了逆序遍历，但是 backlen 记录的是 element 自身的长度，prevlen 记录的是前一个 element 的长度**。很明显，backlen 这种设计把变化封装到了 element 里面，一个 element 无论怎么变，也不会影响邻居，也就不会出现连锁更新。再看 prevlen，就会发现 entry 内部没有兜住自身的变化。这里你应该也会联系到设计模式里面的一些规则，把变化的部分和不变的部分拆分开，对吧？</p>
+<h2 id="listpack-核心方法"><a href="#listpack-核心方法" class="headerlink" title="listpack 核心方法"></a>listpack 核心方法</h2><p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/1ea734dd8ddd4f75b0b1836d80e5ad16~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>要使用 listpack，先需要<strong>用 lpNew() 函数初始化一个 listpack 实例</strong>，返回的 char 指针，指向的是 listpack 的首地址。 lpNew() 函数可以接收一个参数来指定初始化的内存空间大小，比如说，我明确知道我的 listpack 会占用 1024 个字节，就可以直接传个 1024 的参数，就可以申请出 1024 字节大小的内存了。要是传 0 的话，就是创建一个空的 listpack 实例，里面只有头尾两部分，其中的 element 部分都没有，就是下图的状态：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/062f24e2abbd4442940dd5b6dcbe3186~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>至于 lpFree() 函数的话，就是释放 listpack 实例占的空间，这里不再多说了。</p>
+<h3 id="1-插入、修改、删除"><a href="#1-插入、修改、删除" class="headerlink" title="1. 插入、修改、删除"></a>1. 插入、修改、删除</h3><p>创建完 listpack 实例之后呢，我们就可以开始看 listpack 的增删改查了。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/506e4632117841899a85b1ba6826b3a5~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>lpAppend 是往 listpack 的尾部插入字符串，lpPrepend 是往 listpack 的头部插入字符串，lpInsertString() 是往指定的位置插入字符串，它们<strong>底层都依赖 lpInsert () 函数</strong>。</p>
+<p>我们可以用 Cloin 的调用链视图看一下，无论是插入字符串元素，还是插入整数元素，都是走的 lpInsert() 函数：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/8c2d089fe1414d2a8ea7849cce365035~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p><strong>lpInsert() 函数除了有<code>插入</code>数据的功能，还能够实现<code>删除</code>和<code>替换</code>的功能</strong>，从这个调用链里面，我们也能看到 lpDelete()、lpReplace() 这些删除、替换操作也调用了 lpInsert()。</p>
+<p>说明白 lpInsert() 函数的重要性，下面我们就来正式开始分析 lpInsert() 函数。</p>
+<p>先来看 lpInsert() 的<code>参数</code>，几乎它所有的参数都有多个含义，所以我们还得一个个分情况来说明白。如下表所示，除了第一个参数 lp 指向了要被操作的 listpack 实例外，剩下的参数就开始各种“表演”了。</p>
+<table>
+<thead>
+<tr>
+<th><strong>参数</strong></th>
+<th><strong>插入场景</strong></th>
+<th><strong>更新场景</strong></th>
+<th><strong>删除逻辑</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>lp</td>
+<td>目标 listpack 实例</td>
+<td>目标 listpack 实例</td>
+<td>目标 listpack 实例</td>
+</tr>
+<tr>
+<td>elestr</td>
+<td>插入的新字符串</td>
+<td>更新后的新字符串</td>
+<td>必须是 NULL</td>
+</tr>
+<tr>
+<td>eleint</td>
+<td>插入的新整型值</td>
+<td>更新后的整型值</td>
+<td>必须是 NULL</td>
+</tr>
+<tr>
+<td>size</td>
+<td>elestr 字符串的长度或者是 eleint 占了多少个字节</td>
+<td>elestr 字符串的长度或者是 eleint 占了多少个字节</td>
+<td>0</td>
+</tr>
+<tr>
+<td>p</td>
+<td>插入位置，结合 where，可以确定新元素插入到 p 这个 element 的前面还是后面</td>
+<td>指向要更新的 element</td>
+<td>指向要删除的 element</td>
+</tr>
+<tr>
+<td>where</td>
+<td>LP_BEFORE、LP_AFTER 两个可选值，决定新元素插入到 p 这个 element 的前面或者后面</td>
+<td>LP_REPLACE</td>
+<td>LP_REPLACE</td>
+</tr>
+<tr>
+<td>newp</td>
+<td>指向新插入的 element</td>
+<td>指向更新的 element</td>
+<td>指向此次删除 element 的下一个 element</td>
+</tr>
+</tbody></table>
+<p>介绍完方法的具体参数之后，我们再来看 lpInsert() 的<code>具体实现</code>。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">char</span> *<span class="title function_">lpInsert</span><span class="params">(<span class="type">unsigned</span> <span class="type">char</span> *lp, <span class="type">unsigned</span> <span class="type">char</span> *elestr, <span class="type">unsigned</span> <span class="type">char</span> *eleint,</span></span><br><span class="line"><span class="params">                        <span class="type">uint32_t</span> size, <span class="type">unsigned</span> <span class="type">char</span> *p, <span class="type">int</span> where, <span class="type">unsigned</span> <span class="type">char</span> **newp)</span></span><br><span class="line">&#123;</span><br><span class="line">    </span><br><span class="line">    <span class="type">int</span> delete = (elestr == <span class="literal">NULL</span> &amp;&amp; eleint == <span class="literal">NULL</span>); <span class="comment">// 1.a 判断是否为删除操作</span></span><br><span class="line">    <span class="keyword">if</span> (delete) where = LP_REPLACE;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (where == LP_AFTER) &#123; <span class="comment">// 1.b 针对插入场景的归一化处理</span></span><br><span class="line">        p = lpSkip(p);</span><br><span class="line">        where = LP_BEFORE;</span><br><span class="line">        ASSERT_INTEGRITY(lp, p);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> poff = p-lp;</span><br><span class="line">    <span class="type">int</span> enctype;</span><br><span class="line">    <span class="keyword">if</span> (elestr) &#123; <span class="comment">// 2.判断新元素是字符串还是整数值</span></span><br><span class="line">        enctype = lpEncodeGetType(elestr,size,intenc,&amp;enclen);</span><br><span class="line">        <span class="keyword">if</span> (enctype == LP_ENCODING_INT) eleint = intenc;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (eleint) &#123;</span><br><span class="line">        enctype = LP_ENCODING_INT;</span><br><span class="line">        enclen = size; <span class="comment">/* &#x27;size&#x27; is the length of the encoded integer element. */</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        enctype = <span class="number">-1</span>;</span><br><span class="line">        enclen = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><p>首先是对参数进行检查，<strong>通过参数值确定这次调用要执行什么操作</strong>。</p>
+<p>a. 如果 elestr 和 eleint 都是 NULL，那此次操作就是一次删除操作，需要把 where 设置为 LP_REPLACE，同时要将 delete 变量设置为 1。这个时候，p 指向的就是要删除的 element。</p>
+<p>b.  否则就是更新或者插入场景。针对插入场景来说，如果 where 是 LP_AFTER 的话，需要把指针 p 后移一个 element，然后把 where 改成 LP_BEFORE，这样后续操作都是在 p 指针的前面插入新元素了，算是一种归一化的操作了。这里后移一个 element 用的是 lpSkip() 函数，里面的逻辑就是解析 element 的 encoding-type 和 backlen 两部分，确定这个 element 占了多少字节，然后再后移 p 指针。</p>
+</li>
+<li><p>接下来，这个 if…else 代码块就是确定新元素是字符串，还是整数值，以及对应 encoding-type 值。这里我们要来说一下 lpEncodeGetType() 这个函数，它里面会尝试把 elestr 字符串转成整数值，要是能转成功呢，encoding-type 和转换后的 int 值就会填充到 intenc 这个数组里面。无论是不是能转 int，这个 enclen 指针都会记录相应的 backlen 值。</p>
+</li>
+</ol>
+<p>到这里，就已经确定了操作的类型、操作的位置以及参与元素的值，我们接着往下看：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">char</span> *<span class="title function_">lpInsert</span><span class="params">(...)</span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment">// 3.如果不是删除操作，会执行lpEncodeBacklen()函数进行编码</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">long</span> backlen_size = (!delete) ? lpEncodeBacklen(backlen,enclen) : <span class="number">0</span>;</span><br><span class="line">    <span class="type">uint64_t</span> old_listpack_bytes = lpGetTotalBytes(lp);</span><br><span class="line">    <span class="type">uint32_t</span> replaced_len  = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (where == LP_REPLACE) &#123; <span class="comment">// 4.针对更新和删除，计算目标element的长度</span></span><br><span class="line">        replaced_len = lpCurrentEncodedSizeUnsafe(p);</span><br><span class="line">        replaced_len += lpEncodeBacklen(<span class="literal">NULL</span>,replaced_len);</span><br><span class="line">        ASSERT_INTEGRITY_LEN(lp, p, replaced_len);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 5.重新计算listpack长度</span></span><br><span class="line">    <span class="type">uint64_t</span> new_listpack_bytes = old_listpack_bytes + enclen + backlen_size</span><br><span class="line">                                  - replaced_len;</span><br><span class="line">    <span class="keyword">if</span> (new_listpack_bytes &gt; UINT32_MAX) <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> *dst = lp + poff; <span class="comment">/* May be updated after reallocation. */</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 6.插入或更新操作时，触发的扩容场景</span></span><br><span class="line">    <span class="keyword">if</span> (new_listpack_bytes &gt; old_listpack_bytes &amp;&amp;</span><br><span class="line">        new_listpack_bytes &gt; lp_malloc_size(lp)) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((lp = lp_realloc(lp,new_listpack_bytes)) == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">        dst = lp + poff;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (where == LP_BEFORE) &#123; <span class="comment">// 插入或更新时，触发的内存后移操作</span></span><br><span class="line">        memmove(dst+enclen+backlen_size,dst,old_listpack_bytes-poff);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123; <span class="comment">// 删除或更新时，触发的内存前移操作</span></span><br><span class="line">        <span class="type">long</span> lendiff = (enclen+backlen_size)-replaced_len;</span><br><span class="line">        memmove(dst+replaced_len+lendiff,</span><br><span class="line">                dst+replaced_len,</span><br><span class="line">                old_listpack_bytes-poff-replaced_len);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 删除或更新时，触发的缩容场景</span></span><br><span class="line">    <span class="keyword">if</span> (new_listpack_bytes &lt; old_listpack_bytes) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((lp = lp_realloc(lp,new_listpack_bytes)) == <span class="literal">NULL</span>) <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">        dst = lp + poff;</span><br><span class="line">    &#125;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li><p>这里的 lpEncodeBacklen() 函数会把 enclen 这个值编码好，存储到 backlen 数组里面 ，还会计算 backlen 部分的长度（backlen_size），backlen 的编码方式这里不再重复了。</p>
+</li>
+<li><p>下面这个 if 是针对更新和删除操作的处理，这里会算一下当前 element 的长度。</p>
+</li>
+<li><p>接下来，重新计算 listpack 长度，这个时候，就会用到操作前后的 element 长度的变化。</p>
+</li>
+<li><p>算好 listpack 的新长度之后，也就知道了这个 listpack 是需要扩容还是要缩容了。如果是缩容的话，比如说删除操作，我们应该先前移数据，然后再 realloc 缩小内存空间，要不这样的话，listpack 结尾地方的数据就可能丢失。如果是需要扩容的话，比如插入操作，需要先走 realloc 扩容，然后后移已有的数据，再插入新 element。下图展示了插入和删除场景的逻辑，更新元素的话，也是类似的。</p>
+</li>
+</ol>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/66ecd9b16dd145a7bf348c2ee99a5f11~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<ol start="7">
+<li>最后，就是把新 element 写到指定的位置，更新一下 listpack 头部的 tot-bytes 和 num-elements 值。</li>
+</ol>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">unsigned</span> <span class="type">char</span> *<span class="title function_">lpInsert</span><span class="params">(...)</span>&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">if</span> (newp) &#123; </span><br><span class="line">        *newp = dst;</span><br><span class="line">        <span class="keyword">if</span> (delete &amp;&amp; dst[<span class="number">0</span>] == LP_EOF) *newp = <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!delete) &#123; <span class="comment">// 7.写入新元素</span></span><br><span class="line">        <span class="keyword">if</span> (enctype == LP_ENCODING_INT) &#123;</span><br><span class="line">            <span class="built_in">memcpy</span>(dst,eleint,enclen);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            lpEncodeString(dst,elestr,size);</span><br><span class="line">        &#125;</span><br><span class="line">        dst += enclen;</span><br><span class="line">        <span class="built_in">memcpy</span>(dst,backlen,backlen_size);</span><br><span class="line">        dst += backlen_size;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (where != LP_REPLACE || delete) &#123; <span class="comment">// 7.更新listpack头的信息</span></span><br><span class="line">        <span class="type">uint32_t</span> num_elements = lpGetNumElements(lp);</span><br><span class="line">        <span class="keyword">if</span> (num_elements != LP_HDR_NUMELE_UNKNOWN) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!delete)</span><br><span class="line">                lpSetNumElements(lp,num_elements+<span class="number">1</span>);</span><br><span class="line">            <span class="keyword">else</span></span><br><span class="line">                lpSetNumElements(lp,num_elements<span class="number">-1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    lpSetTotalBytes(lp,new_listpack_bytes);</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里需要关注一下 <code>newp</code> 这个参数，它是个二级指针，比如下面这段代码，newp 指向了 p 指针，我们在 lpInsert 里面修改 *newp 就是修改了 p 指针的指向，这时就实现了输出参数的效果。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">char</span>* p = ...; </span><br><span class="line"><span class="type">char</span> **newp = &amp;p;</span><br><span class="line">lpInsert(..., newp);</span><br><span class="line">... <span class="comment">// 使用p指针</span></span><br></pre></td></tr></table></figure>
+
+
+<p>下面这张图就说明了 *newp 这个指针的指向：如果此次是插入操作，会把它指向新 element；如果是更新操作，它会指向这个更新的 element；如果是删除操作，它会指向下一个 element。</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/55ff15d792f1411286c853338b474bf9~tplv-k3u1fbpfcp-watermark.image" alt="image.png">  </p>
+<p>之所以要这么修改 *newp 指针，主要是<code>为了方便实现迭代器的删除操作</code>。在后面介绍 quicklist 迭代器的时候会看到，它就是使用 lpInsert() 方法删除元素的，它需要感知到删除之后下一个 element 的位置，这样才能继续往下迭代。</p>
+<p>对标到 Java 里面，如果是要在 LinkedList 的迭代过程中，插入或是删除元素的话，需要用迭代器，要是不用迭代器的话，就会抛并发修改的异常（ConcurrentModificationException），在 LinkedList 迭代器的 remove() 里面，也会有类似的指针变更操作，熟悉 Java 的小伙伴们应该都不陌生。</p>
+<h3 id="2-迭代与读取"><a href="#2-迭代与读取" class="headerlink" title="2. 迭代与读取"></a>2. 迭代与读取</h3><p>其实看完 lpInsert() 的实现，就已经看完了 listpack 的增、删、改三种操作，我们只需要再简单看一下 listpack 的<code>查询</code>操作，listpack 的事情就齐活了。</p>
+<p>与 listpack 读取或者迭代相关的函数，就是下面这些，从函数名上基本就可以猜出具体实现。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/01ffc1165aac4d12af6fb334a5ec8685~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>我这里简单整理一下这些函数的功能：</p>
+<table>
+<thead>
+<tr>
+<th><strong>函数</strong></th>
+<th><strong>功能</strong></th>
+</tr>
+</thead>
+<tbody><tr>
+<td>lpFirst()</td>
+<td>获取指向 listpack 中第一个 element 的指针</td>
+</tr>
+<tr>
+<td>lpLast()</td>
+<td>获取指向 listpack 中最后一个 element 的指针</td>
+</tr>
+<tr>
+<td>lpNext()</td>
+<td>这个函数的第二个参数 p，指向了 listpack 中的一个 element，lpNext() 函数返回的是 p 之后的一个 element 的指针</td>
+</tr>
+<tr>
+<td>lpPrev()</td>
+<td>返回指向 p 之前的一个 element 的指针</td>
+</tr>
+<tr>
+<td>lpSeek()</td>
+<td>lpSeek() 函数第二个参数 index 指定了要获取 listpack 的第几个 element。lpSeek() 函数会通过上面四个迭代函数，从 listpack 头部&#x2F;尾部开始迭代，直到迭代到 index 指定的目标 element 并返回其指针。注意，当 index 为正，则从 listpack 头部开始正向搜索；当 index 为负，则从 listpack 尾部向前反向搜索。</td>
+</tr>
+<tr>
+<td>lpGet()</td>
+<td>读取 element 中存储的元素值</td>
+</tr>
+</tbody></table>
+<p>这个表里面的前五个函数，只需要解析 element 的 encoding-type 和 backlen 两部分，就可以实现指针移动了，没必要解析 data 部分。</p>
+<p>但是，lpGet() 函数，就需要专门解析 data 部分。看下面这个调用关系链，我们发现解析 data 值的函数，底层走的是 <strong>lpGetWithSize() 函数</strong>。至于 lpGetWithSize() 函数的具体实现，就是根据 encoding-type 编码格式解析 data，该函数的实现就留给你自己分析吧，相信你在读完本讲内容之后，可以轻松读懂该函数，当然也欢迎你在评论区分享看源码时遇到的问题哦。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/55ba92afb7b544c9a0b8c96f8b2186f5~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们重点介绍了 Redis 5 引入的 listpack 结构，在 Redis 7 中，listpack 已经完全替换了复杂的 ziplist 结构。</p>
+<ul>
+<li>首先，讲解了 listpack 结构的细节以及其中 element 的编码方式。</li>
+</ul>
+<!---->
+
+<ul>
+<li>然后，重点分析了 ziplist 和 listpack 之间的区别，这也是 Redis 放弃 ziplist 的主要原因之一。</li>
+</ul>
+<!---->
+
+<ul>
+<li>最后，详细阐述了 listpack 的核心方法，我们可以清晰地感受到，操纵 listpack 的逻辑比操纵 ziplist 的逻辑要简单很多，尤其是没有连锁更新这种复杂的操作存在。</li>
+</ul>
+<p>下一节，我们会来一起分析一下 quicklist，它是 Redis List 底层依赖的另一个重要的结构。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC17%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E7%9A%84%E6%9B%BF%E4%BB%A3%E8%80%85listpack/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC17%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E7%9A%84%E6%9B%BF%E4%BB%A3%E8%80%85listpack/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC15%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9A%E6%B7%B1%E5%85%A5ziplist%E4%B9%8B%E5%86%99%E5%85%A5%E6%95%B0%E6%8D%AE/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC06%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9AList%E5%91%BD%E4%BB%A4%E8%AF%A6%E8%A7%A3%E4%B8%8E%E5%AE%9E%E6%88%98%EF%BC%88%E4%B8%8A%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#listpack-%E6%A0%B8%E5%BF%83%E7%BB%93%E6%9E%84"><span class="toc-number">1.</span> <span class="toc-text">listpack 核心结构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#listpack-%E6%A0%B8%E5%BF%83%E6%96%B9%E6%B3%95"><span class="toc-number">2.</span> <span class="toc-text">listpack 核心方法</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E6%8F%92%E5%85%A5%E3%80%81%E4%BF%AE%E6%94%B9%E3%80%81%E5%88%A0%E9%99%A4"><span class="toc-number">2.1.</span> <span class="toc-text">1. 插入、修改、删除</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E8%BF%AD%E4%BB%A3%E4%B8%8E%E8%AF%BB%E5%8F%96"><span class="toc-number">2.2.</span> <span class="toc-text">2. 迭代与读取</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">3.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

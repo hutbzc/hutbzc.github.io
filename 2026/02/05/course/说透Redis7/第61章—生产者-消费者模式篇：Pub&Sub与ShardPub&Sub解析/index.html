@@ -1,0 +1,262 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="Redis 作为一个基于内存的 NoSQL 数据库，在实践中最常作为缓存或是存储使用。除此之外，我们还可以将 Redis 作为一个消息通道，实现生产者发送数据、消息者消费数据的效果，这就有点类似于 Kafka、RabbitMQ 等消息中间件的功能。前面介绍的 List 结构，就可以用来实现简易版本的生产者消费者模式，优缺点在前面第 7 篇《实战应用篇：List 命令详解与实战（下）》中也有描述，小">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&Sub%E4%B8%8EShardPub&Sub%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="Redis 作为一个基于内存的 NoSQL 数据库，在实践中最常作为缓存或是存储使用。除此之外，我们还可以将 Redis 作为一个消息通道，实现生产者发送数据、消息者消费数据的效果，这就有点类似于 Kafka、RabbitMQ 等消息中间件的功能。前面介绍的 List 结构，就可以用来实现简易版本的生产者消费者模式，优缺点在前面第 7 篇《实战应用篇：List 命令详解与实战（下）》中也有描述，小">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.711Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.712Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.712Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>Redis 作为一个基于内存的 NoSQL 数据库，在实践中最常作为<strong>缓存</strong>或是<strong>存储</strong>使用。除此之外，我们还可以将 Redis 作为一个<strong>消息通道</strong>，实现生产者发送数据、消息者消费数据的效果，这就有点类似于 Kafka、RabbitMQ 等消息中间件的功能。前面介绍的 <code>List 结构</code>，就可以用来实现简易版本的生产者消费者模式，优缺点在前面<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147527327713329186">第 7 篇《实战应用篇：List 命令详解与实战（下）》</a>中也有描述，小伙伴有遗忘的话，可以进行简单的回顾。</p>
+<p>本节要介绍的 <strong>Pub&#x2F;Sub，是一种发布订阅机制，也可以用来实现生产者消费者模式</strong>。当然 Redis 的 Pub&#x2F;Sub 功能比较弱，远远没有那些成熟的消息中间件的功能完善，但是在实际应用中还是有很多应用场景的。</p>
+<p>首先，我们先从整体上了解一下 Pub&#x2F;Sub 的功能，如下图所示，Redis 中可以创建多个 Channel，一个 Channel 可以有多个 Client 订阅，当其他 Client 向 Channel 中发送消息的时候，订阅了该 Channel 的 Client 就能收到消息。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/e38e8c98ac404d10854dd40eb1af4b57~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="Pub-Sub命令核心实现"><a href="#Pub-Sub命令核心实现" class="headerlink" title="Pub&#x2F;Sub命令核心实现"></a>Pub&#x2F;Sub命令核心实现</h2><p>了解了 Pub&#x2F;Sub 的基本功能之后，我们来看 Pub&#x2F;Sub 的核心实现。</p>
+<p>Redis 在 redisServer 结构体中维护了一个 <code>pubsub_channels 字典</code>，其中的 Key 是一个字符串，表示的是 Channel 的名称，Value 是一个 adlist 实例，是订阅了该 Channel 的 Client 列表，整体结构如下图所示：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/daf4debf088b4e07a8e079ba60a5f6b7~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>除此之外，Client 中也维护了一个 pubsub_channels 字典，用来记录当前 Client 实例订阅了哪些 Channel，其中 Key 也是 Channel 的名称，Value 则是 NULL。</p>
+<p>当 Redis 收到客户端 SUBSCRIBE 命令的时候（可以一次性指定多个 Channel 名称），会循环调用 pubsubSubscribeChannel() 函数处理命令参数中携带的每个 Channel，pubsubSubscribeChannel() 函数的核心逻辑如下。</p>
+<ol>
+<li>首先，记录发送 SUBSCRIBE 命令的 client 到 Channel 的映射关系。也就是将 Channel 名称作为 Key，添加到该 client 实例的 pubsub_channels 字典中，Value 为 NULL。</li>
+<li>然后，记录 Channel 到 client 映射关系。这里先从 redisServer-&gt;pubsub_channels 字典中查找订阅了该 Channel 的 client 列表，然后将当前 client 添加到该 client 列表的尾部。</li>
+<li>最后，在当前 client-&gt;flags 字段中添加 CLIENT_PUBSUB 标记，并返回当前 client 订阅的 Channel 和模式（pattern）的总数。</li>
+</ol>
+<p><strong>CLIENT_PUBSUB 标记表示该客户端进入了 Pub&#x2F;Sub 模式，那么该客户端不能再发送其他命令了，只能被动接收 Redis 服务 push 过来的数据了</strong>。我们在 processCommand() 函数中可以看到检查 CLIENT_PUBSUB 标记的代码逻辑：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">processCommand</span><span class="params">(client *c)</span> &#123;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 检查CLIENT_PUBSUB状态，以及客户端与Redis服务交互的RESP协议版本</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((c-&gt;flags &amp; CLIENT_PUBSUB &amp;&amp; c-&gt;resp == <span class="number">2</span>) &amp;&amp;  </span><br><span class="line"></span><br><span class="line">        <span class="comment">// 如果是CLIENT_PUBSUB状态客户端且使用RESP2协议，只能执行下面几种命令</span></span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != pingCommand &amp;&amp; </span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != subscribeCommand &amp;&amp;</span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != unsubscribeCommand &amp;&amp;</span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != psubscribeCommand &amp;&amp;</span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != punsubscribeCommand &amp;&amp;</span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != resetCommand) &#123;</span><br><span class="line"></span><br><span class="line">        rejectCommandFormat(c, <span class="string">&quot;...&quot;</span>, c-&gt;cmd-&gt;name); <span class="comment">// 拒绝其他命令的执行</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> C_OK;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>客户端通过执行 SUBSCRIBE 命令，能够订阅明确指定的一个或多个 Channel。客户端还可以通过 PSUBSCRIBE 命令订阅一个或多个模式（pattern），这里的模式（pattern）可以认为是一个包含通配符，可以匹配多个 Channel。例如，<code>PSUBSCRIBE test.*</code> 这条命令就会订阅全部以 “test.” 开头的 Channel。注意，Redis 使用的模式（pattern）匹配并不是正则表达式，而是 Glob-Style 模式，感兴趣的同学可以了解一下 Glob-Style 模式的相关内容，其中的通配符使用比较简单，这里不展开说明了。</p>
+<p>PSUBSCRIBE 命令的核心实现与 SUBSCRIBE 命令有些类似，在 client 和 redisServer 两个结构体中各自维护了一个 pubsub_patterns 的字段，分别用于记录 client 到其订阅的模式（pattern）之间的映射关系以及反向关系。PSUBSCRIBE 命令的核心执行逻辑与 SUBSCRIBE 命令也比较类似，如下所示：</p>
+<ol>
+<li>首先，记录 client 到模式（pattern）的映射关系。也就是在模式（pattern）字符串不存在的时候，将其记录到 client-&gt; pubsub_patterns 这个 adlist 列表的尾部。</li>
+<li>然后，记录模式（pattern）到 client 的映射关系。这里先从 redisServer-&gt;pubsub_patterns 字典中查找订阅了指定模式（pattern）的 client 列表，然后将当前 client 添加到该 client 列表尾部。</li>
+<li>最后，在当前 client-&gt;flags 字段中添加 CLIENT_PUBSUB 标记，并返回当前 client 订阅的 Channel 和模式（pattern）的总数。</li>
+</ol>
+<h2 id="PUBLISH-命令核心实现"><a href="#PUBLISH-命令核心实现" class="headerlink" title="PUBLISH 命令核心实现"></a>PUBLISH 命令核心实现</h2><p>介绍完订阅端的核心实现之后，我们再来看 PUBLISH 命令是如何发送一条消息的，处理 PUBLISH 命令的核心实现位于 pubsubPublishMessageInternal() 函数中。这里注意它的第三个参数 type，它是一个 pubsubtype 类型的实例，之所以会有这个参数，是因为<code>在 Redis 7.0 中， 新添加了 Shard Pub/Sub 特性来更好``地``实现 Redis Cluster 下的 Pub/Sub 功能</code>。这里我们先来关注普通的 Pub&#x2F;Sub 实现，Shard Pub&#x2F;Sub 特性我们后面单独介绍。</p>
+<p>下面正式来看 pubsubPublishMessageInternal() 函数的核心逻辑，如下所示。</p>
+<ol>
+<li><p>首先，Redis 根据 PUBLISH 命令指定的 Channel 名称，从 redisServer-&gt;pubsub_channels 字典中查找订阅了该 Channel 的 client 列表。然后遍历该 client 列表，针对每个 client 调用 addReplyPubsubMessage() 函数，将 PUBLISH 命令指定的消息内容 push 到相应客户端。addReplyPubsubMessage() 函数中会根据当前客户端使用的 RESP 协议版本，生成对应格式的 push 消息内容。</p>
+</li>
+<li><p>之后，处理 Channel 与某些 pattern 匹配的情况。这里会迭代整个 redisServer-&gt;pubsub_patterns 字典，用其中的每个 Key（也就是前面添加的 pattern）去匹配 PUBLISH 命令指定的 Channel 名称。如果匹配成功，则遍历该 pattern 对应的 client 列表，将 PUBLISH 命令指定的消息内容 push 给这些 client。</p>
+</li>
+</ol>
+<p>上面这段逻辑是在 Redis 单机模式下执行 PUBLISH 命令的核心，接下来我们来看一下 publishCommand() 函数，其中还能看到针对 Sentinel、主从复制的特殊处理逻辑，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">   <span class="type">void</span> <span class="title function_">publishCommand</span><span class="params">(client *c)</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (server.sentinel_mode) &#123; <span class="comment">// 当前Redis实例是Sentinel，这里用于模拟收到一条Hello消息，而不是发送消息</span></span><br><span class="line"></span><br><span class="line">        sentinelPublishCommand(c);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    <span class="comment">// 向普通Redis实例或者是Redis Cluster发送罅消息，都走pubsubPublishMessageAndPropagateToCluster()函数</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> receivers = pubsubPublishMessageAndPropagateToCluster(c-&gt;argv[<span class="number">1</span>],c-&gt;argv[<span class="number">2</span>],<span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!server.cluster_enabled) <span class="comment">// 未开启Redis Cluster模式</span></span><br><span class="line"></span><br><span class="line">        forceCommandPropagation(c,PROPAGATE_REPL);</span><br><span class="line"></span><br><span class="line">    addReplyLongLong(c,receivers);</span><br><span class="line"></span><br><span class="line">&#125;    </span><br><span class="line"></span><br><span class="line">    </span><br></pre></td></tr></table></figure>
+
+<p>先来看这里的 forceCommandPropagation() 函数调用，这里会在当前 client-&gt;flags 中设置 CLIENT_FORCE_REPL 标识符。在前文介绍的 Redis 主从复制的时候提到，call() 函数在执行完成一条命令之后，会根据 propagate_flags 决定是否将命令写入到 AOF 以及 Slave 节点中，其中就会检查 client-&gt;flags 中的 CLIENT_FORCE_REPL 标识位来决定是否将命令传播到 Slave 节点，相应的代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> <span class="title function_">call</span><span class="params">(client *c, <span class="type">int</span> flags)</span></span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略清理c-&gt;flags的代码</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 执行命令。这里会调用publishCommand()函数，会在c-&gt;flags中设置CLIENT_FORCE_REPL</span></span><br><span class="line"></span><br><span class="line">    c-&gt;cmd-&gt;<span class="title function_">proc</span><span class="params">(c)</span>; </span><br><span class="line"></span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (flags &amp; CMD_CALL_PROPAGATE &amp;&amp; <span class="comment">// 是否需要尝试将命令写入AOF或是传播到Slave中</span></span><br><span class="line"></span><br><span class="line">        (c-&gt;flags &amp; CLIENT_PREVENT_PROP) != CLIENT_PREVENT_PROP &amp;&amp;</span><br><span class="line"></span><br><span class="line">        c-&gt;cmd-&gt;proc != execCommand &amp;&amp;</span><br><span class="line"></span><br><span class="line">        !(c-&gt;cmd-&gt;flags &amp; CMD_MODULE))</span><br><span class="line"></span><br><span class="line">    &#123;</span><br><span class="line"></span><br><span class="line">        <span class="type">int</span> propagate_flags = PROPAGATE_NONE; <span class="comment">// 初始化</span></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 下面检查当前执行的命令是否为修改命令，显然PUBLISH没有修改任何数据</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (dirty) propagate_flags |= (PROPAGATE_AOF|PROPAGATE_REPL);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="comment">// 检查c-&gt;flags字段中的CLIENT_FORCE_REPL标识，这正好是PUBLISH命令中设置的</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_FORCE_REPL) propagate_flags |= PROPAGATE_REPL;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (c-&gt;flags &amp; CLIENT_FORCE_AOF) propagate_flags |= PROPAGATE_AOF;</span><br><span class="line"></span><br><span class="line">        ... <span class="comment">// 省略propagate_flags变量中其他标识位的设置逻辑</span></span><br><span class="line"></span><br><span class="line">        </span><br><span class="line"></span><br><span class="line">        <span class="comment">// 调用alsoPropagate()函数将命令传播写入到redisOp数组中，等待后续写入AOF或者发送到从库</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (propagate_flags != PROPAGATE_NONE)</span><br><span class="line"></span><br><span class="line">            alsoPropagate(c-&gt;db-&gt;id,c-&gt;argv,c-&gt;argc,propagate_flags);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略重置c-&gt;flags的逻辑</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过上面这段代码我们知道，在 Master 节点上执行的 PUBLISH 命令会通过主从复制的方式传播到 Slave 节点中，那我们在 Slave 节点上监听相应的 channel 或是 pattern 也可以收到消息。</p>
+<h2 id="Shard-Pub-Sub-解析"><a href="#Shard-Pub-Sub-解析" class="headerlink" title="Shard Pub&#x2F;Sub 解析"></a>Shard Pub&#x2F;Sub 解析</h2><h3 id="Pub-Sub-在-Redis-Cluster-中的问题"><a href="#Pub-Sub-在-Redis-Cluster-中的问题" class="headerlink" title="Pub&#x2F;Sub 在 Redis Cluster 中的问题"></a>Pub&#x2F;Sub 在 Redis Cluster 中的问题</h3><p>在 Redis 7 之前，Redis Cluster 对 Pub&#x2F;Sub 的支持不是很好，它的模型是这样的：客户端在订阅一个 Channel 的时候，可以在任意一个 Cluster 节点上进行订阅，但是客户端在向一个 Channel 发送消息的时候，看似是只发送到了一个 Cluster 节点，但是 Redis Cluster 会把这条消息传播到每个节点上去，最终送达到订阅的客户端中。这部分功能在 Redis 7 中依旧保留，主要用于处理非 Shard 的 PUBLISH 命令，具体实现在 clusterSendPublish() 函数中。</p>
+<p>下面展开说一下 clusterSendPublish() 函数的实现。</p>
+<p>在我们执行 PUBLISH 命令向一个 Redis Cluster 发送一条消息的时候，clusterSendPublish() 函数将消息内容封装成一条 PUBLISH 类型的 Cluster Message，并把这个消息广播给全部 Cluster 节点。PUBLISH 类型 Cluster Message 中的 data 部分为 clusterMsgDataPublish 实例，其中记录了 channel 名称的字节数、message 字节数以及一个 bulk_data 字节数组，该字节数组就是用来存储真正的 channel 名称以及 message 数据。</p>
+<p>在 Redis Cluster 中其他节点收到 PUBLISH 类型的 Cluster Message 时，会根据上述规则解析出其中的 channel 以及 message 数据，然后直接调用上面介绍的 pubsubPublishMessage() 函数，将 message 数据 push 到在当前节点上订阅对应 channel 的客户端。</p>
+<p>该流程可以总结为如下图所示的 1~4 步：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/70d60f95219d486089fc49b9101e5e2e~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>这部分解析 PUBLISH 类型的 Cluster Message 的逻辑位于 clusterProcessPacket() 函数中，感兴趣的同学可以参考源码进行分析。</p>
+<p>Redis 7 之前的模型存在的最明显问题就是<code>效率低</code>，如果我们只有一个客户端订阅指定的 Channel，那发往其他节点的全部 PUBLISH Cluster Message 都是无用的。这种低效的消息传播方式，进一步演化，就会导致整个 Redis Cluster 的吞吐量下降，扩展性降低。这些缺点在 Redis PR 里面也有相关的讨论，感兴趣的小伙伴可以<a target="_blank" rel="noopener" href="https://github.com/redis/redis/issues/2672">参考一下这个 PR</a>，进一步了解讨论的内容。</p>
+<h3 id="Shard-Pub-Sub-解决方案"><a href="#Shard-Pub-Sub-解决方案" class="headerlink" title="Shard Pub&#x2F;Sub 解决方案"></a>Shard Pub&#x2F;Sub 解决方案</h3><p><strong>为了提高 Redis Cluster 模式下 Pub&#x2F;Sub 的效率，Redis 7 引入 Shard Pub&#x2F;Sub 的特性</strong>。</p>
+<p>Shard Pub&#x2F;Sub 的核心思想是：<strong>把 Channel 名称看作是一个 Key，归属于一个 slot，而 slot 都会明确归属于一个 Master 节点</strong>。客户端订阅 Shard Channel 的时候，只能在这个 Master 节点（以及它的 Slave 节点）上进行订阅，PUBLISH 消息的时候，只能向这个 Master 节点进行 PUBLISH，这样就可以避免消息的广播，提高了整个 Redis Cluster 可扩展性。在 slot 迁移的时候，Shard Channel 也会随之迁移，这样也就保证了高可用。</p>
+<p>为了支持 Shard Pub&#x2F;Sub 特性，Redis 在 redisServer 中添加了 pubsubshard_channels 字段（dict 指针），其中记录了 Shard Channel 与订阅该 Shard Channel 的 Client 列表的映射关系，对标前面介绍的 redisServer.pubsub_channels 字段；另外，还在 client 中添加了 pubsubshard_channels 字段（ dict 指针），其中记录了当前 Client 订阅了哪些 Shard Channel，对标前面介绍的 pubsub_channels 字段。</p>
+<p>为了让普通 Channel 和 Shard Channel 共用一套逻辑，Redis 7 引入了 pubsubType 结构体，其定义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">pubsubtype</span> &#123;</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> shard;  <span class="comment">// shard为1，表示走shard pub/sub逻辑；shard为0，表示走普通pub/sub逻辑</span></span><br><span class="line"></span><br><span class="line">    dict *(*clientPubSubChannels)(client*); <span class="comment">// 获取client订阅了哪些Channel，返回的是client中的pubsub_channels或者pubsubshard_channels</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> (*subscriptionCount)(client*); <span class="comment">// 获取client订阅Channel的个数</span></span><br><span class="line"></span><br><span class="line">    dict **serverPubSubChannels; <span class="comment">// 获取Channel与Client列表的一个关系，返回的是redisServer.pubsub_channels或者pubsubshard_channels</span></span><br><span class="line"></span><br><span class="line">    robj **subscribeMsg; <span class="comment">// 订阅命令</span></span><br><span class="line"></span><br><span class="line">    robj **unsubscribeMsg; <span class="comment">// 退订命令</span></span><br><span class="line"></span><br><span class="line">&#125;pubsubtype;</span><br></pre></td></tr></table></figure>
+
+<p>pubsubType 有两个实现，一个是 pubSubType，对应普通 Pub&#x2F;Sub 的处理逻辑；一个是 pubSubShardType，对应 Shard Pub&#x2F;Sub 的处理逻辑。</p>
+<p>Shard Pub&#x2F;Sub 最后一个引入的新结构是 ClusterState 中的 slots_to_channels 字段（Rax 指针），其中存储的 Key 是 slot 和 Channel 名称拼接起来的字符串，Value 是 NULL。slots_to_channels 这个 Rax 树主要是为了按序维护 slot 到 Channel 的映射关系。</p>
+<p>说完 Shard Pub&#x2F;Sub 底层依赖的底层结构之后，我们来看 Shard Pub&#x2F;Sub 特性的核心逻辑。首先说明一点，Redis 并没有复用 SUBSCRIBE 和 PUBLISH 命令，而是使用 SSUBSCRIBE、SPUBLISH 两条新命令来实现 Shard Pub&#x2F;Sub 特性。如果我们在 Redis Cluster 模式下执行 SUBSCRIBE 和 PUBLISH 命令，还是走 Redis 7 之前的广播模型来实现 Pub&#x2F;Sub，而不是 Shard Pub&#x2F;Sub 的逻辑。</p>
+<p>在我们执行 SSUBSCRIBE 命令订阅一个 Shard Channel 的时候，Redis Cluster 节点首先会在前文介绍的 getNodeByQuery() 函数中，检查目标 Shard Channel 所归属的 slot，是否由当前节点负责管理，如果不是的话，就和处理普通 Key 一样，返回 MOVED 响应。</p>
+<p>通过 getNodeByQuery() 函数检查之后，我们再来看真正处理 SSUBSCRIBE 命令的 ssubscribeCommand() 函数，它会先调用 slotToChannelAdd() 函数，将 Shard Channel 归属的 slot 与 Shard Channel 名称的映射关系，记录到前面介绍的 ClusterState-&gt;slots_to_channels 中。然后再调用前面介绍的 pubsubSubscribeChannel() 函数，记录 Shard Channel 与 Client 之间正反两个方向的关系。注意，这里传入的就是 pubSubShardType 实现，里面记录 Shard Channel 与 Client 正反关系的字段在上面已经详细分析过了，不再重复。</p>
+<p>通过 SSUBSCRIBE 完成订阅之后，我们就可以通过 SPUBLISH 命令向 Shard Channel 发送消息了。Redis 在处理 SPUBLISH 命令的时候，首先也是要经过 getNodeByQuery() 函数检查，确定目标 Shard Channel 由当前 Cluster 节点管理。之后，才会执行 spublishCommand() 函数处理 SPUBLISH 命令。spublishCommand() 的实现与 publishCommand() 类似，其调用栈如下所示，它会先调用 pubsubPublishMessageInternal() 函数，向在当前 Cluster 节点上监听目标 Shard Channel 的客户端 push 消息；然后执行的 clusterPropagatePublish() 函数向当前主从复制组的全部节点 push 这条消息，注意，这里不再是广播消息了。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/d37b2bb3a0034bbcae014d5944af9449~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>最后，我们用一张图，总结一下 <code>Shard Pub/Sub 的模型</code>，如下：</p>
+<p><img src="https://p1-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/3905add9d452449e93221a50c2df81ed~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>到此为止，Shard Pub&#x2F;Sub 的核心原理就介绍完了，Shard Pub&#x2F;Sub 方案的 PR 是 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/issues/8029#issuecomment-793160824">https://github.com/redis/redis/issues/8029#issuecomment-793160824</a> ，修改的 PR 是 <a target="_blank" rel="noopener" href="https://github.com/redis/redis/pull/8621">https://github.com/redis/redis/pull/8621</a> ，感兴趣的小伙伴可以阅读一下这两个 PR 的内容。</p>
+<h2 id="Pub-Sub-的优缺点"><a href="#Pub-Sub-的优缺点" class="headerlink" title="Pub&#x2F;Sub 的优缺点"></a>Pub&#x2F;Sub 的优缺点</h2><p>使用 Pub&#x2F;Sub 方式实现生产者消费者模式的优点就是<code>简单</code>，绝大多 Redis 客户端都是支持 Pub&#x2F;Sub 功能的。</p>
+<p>相应地，Pub&#x2F;Sub 也会一些缺点，例如：</p>
+<ul>
+<li>使用 Pub&#x2F;Sub 的话，不能对消息进行持久化保存，一旦 Redis 服务重启，发送中的消息全部丢失。</li>
+<li>强依赖订阅客户端在线，如果订阅客户端下线或是断线重连，在断开连接期间的全部消息都无法收到。从另一个角度看，就是无法读取历史消息，由于没有对消息进行任何存储，对新上线或是断线重连的客户端，是无法消费历史消息的。</li>
+<li>没有消息确认机制，发布消息侧的客户端只知道 push 给了多少个客户端，具体订阅端有没有消费成功，Redis 本身以及发布消息的客户端都是不清楚的。</li>
+<li>在 Redis Cluster 场景中，消息会广播给全部的 Cluster 节点，在 Redis Cluster 中流转的消息量与 Redis Cluster 节点个数成正比，如果发布大量的消息，就需要关注整个 Redis Cluster 的性能是否有所下降。Shard Pub&#x2F;Sub 在一定程度上缓解了这个问题，但是还是存在以上其他缺点。</li>
+</ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在本节中，我们重点介绍了 Redis 中 Pub&#x2F;Sub 相关的实现。</p>
+<ul>
+<li>首先，介绍了 Pub&#x2F;Sub 核心命令，以及这些命令的核心实现。</li>
+<li>然后，深入讲解了 Redis 7 引入的 Shard Pub&#x2F;Sub 新特性及其底层原理。</li>
+<li>最后，说明了 Pub&#x2F;Sub 以及 Shard Pub&#x2F;Sub 的优缺点。</li>
+</ul>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC61%E7%AB%A0%E2%80%94%E7%94%9F%E4%BA%A7%E8%80%85-%E6%B6%88%E8%B4%B9%E8%80%85%E6%A8%A1%E5%BC%8F%E7%AF%87%EF%BC%9APub&amp;Sub%E4%B8%8EShardPub&amp;Sub%E8%A7%A3%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC55%E7%AB%A0%E2%80%94Sentinel%E7%AF%87%EF%BC%9ASentinel%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC50%E7%AB%A0%E2%80%94%E4%B8%BB%E4%BB%8E%E5%90%8C%E6%AD%A5%E7%AF%87%EF%BC%9A%E4%B8%BB%E5%BA%93%E8%A7%86%E8%A7%92%E4%B8%8B%E7%9A%84%E4%B8%BB%E4%BB%8E%E5%A4%8D%E5%88%B6%EF%BC%88%E4%B8%8A%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Pub-Sub%E5%91%BD%E4%BB%A4%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.</span> <span class="toc-text">Pub&#x2F;Sub命令核心实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PUBLISH-%E5%91%BD%E4%BB%A4%E6%A0%B8%E5%BF%83%E5%AE%9E%E7%8E%B0"><span class="toc-number">2.</span> <span class="toc-text">PUBLISH 命令核心实现</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Shard-Pub-Sub-%E8%A7%A3%E6%9E%90"><span class="toc-number">3.</span> <span class="toc-text">Shard Pub&#x2F;Sub 解析</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Pub-Sub-%E5%9C%A8-Redis-Cluster-%E4%B8%AD%E7%9A%84%E9%97%AE%E9%A2%98"><span class="toc-number">3.1.</span> <span class="toc-text">Pub&#x2F;Sub 在 Redis Cluster 中的问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Shard-Pub-Sub-%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88"><span class="toc-number">3.2.</span> <span class="toc-text">Shard Pub&#x2F;Sub 解决方案</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Pub-Sub-%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="toc-number">4.</span> <span class="toc-text">Pub&#x2F;Sub 的优缺点</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">5.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

@@ -1,0 +1,357 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="个人博客Blog">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/page/7/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="个人博客Blog">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/page/7/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: false,
+  isHome: true,
+  isHighlightShrink: false,
+  isToc: false,
+  postUpdate: '2026-02-05 23:21:31'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url('https://bu.dusays.com/2024/05/14/664353a7725c4.jpg')"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Southblock'Blog</h1><div id="site-subtitle"><span id="subtitle"></span></div><div id="site_social_icons"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts" id="recent-posts"><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC02%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9A%E5%88%9D%E8%AF%86Redis/" title="无题">无题</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-02-05T15:21:15.701Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="content">作为“先导篇”的第一篇文章，本文主要是给不熟悉 Redis 的小伙伴，快速介绍一下 Redis 的相关概念和使用场景。
+本文主要从三个方面来介绍（如下图所示）：Redis 是什么、为什么使用 Redis 以及 Redis 与 Memcached 的对比。其中，第二、第三方面也是面试的重灾区，在不同等级的面试中，多多少少都会涉及到这两方面的问题。
+
+Redis 是什么？先来说说 Redis 是什么东西吧，有的小伙伴可能是第一次接触 Redis。
+一般我们看一个东西是什么的时候，都是去官网上看一下 Introduction， 那我们 Redis 官网（https://redis.io/）走起，如下截图：
+
+毕竟官网的解释最标准而权威，所以我们就一起解读下官网对于 Redis 的介绍。
+
+Redis 是一个开源的、内存的、有数据结构的存储，通常会被用作 DB、缓存、消息队列、流处理引擎。
+
+Redis 提供了非常多的数据类型，比如，String、Hash、Set、List 等。Redis 还提供了主从复制、Lua 脚本、LRU 淘汰机制，以及持久化、哨兵 、Cluster。（小声说一句，这些 ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC03%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9A10%E5%88%86%E9%92%9FC%E8%AF%AD%E8%A8%80%E5%85%A5%E9%97%A8/" title="无题">无题</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-02-05T15:21:15.701Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="content">要想读懂 Redis 里面关键的代码实现，还是需要先有一点点 C 语言基础的，因此，本文我们就来做一个简单的 C 语言入门讲解，主要是介绍一下 C 字符串、结构体、指针以及数组这四方面的内容。这四方面内容会和 Java 对比着说，尽可能让熟悉 Java 的小伙伴做到零门槛。
+当然，如果你非常熟悉 C 语言的话，可以直接跳过这一篇文章。
+C 字符串首先来看 C 语言中的字符串。在 Java 里面，我们是如何创建一个字符串呢？直接 new 一个 String 对象，就行了。比如，下面就定义一个 s 字符串变量：
+1String s = new String(&quot;Hello World&quot;);
+
+
+new String() 是在堆里面分配一个 String 对象，s 这个变量存的就是这个 String 对象的地址，就和下面这张图一样：
+
+如果你看过 Java String 的源码，会知道 String 底层是拿 char 数组（字符数组）实现的。我这里用的还是 JDK 8 的源码，JDK 9 的话，就已经变成 byte[] 数组（字节数组）了。
+
+C 语言里面的字符串也是这么 ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC04%E7%AB%A0%E2%80%94%E5%85%88%E5%AF%BC%E5%9F%BA%E7%A1%80%E7%AF%87%EF%BC%9ARedis7.0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA%E4%B8%8EPR%E9%98%85%E8%AF%BB%E6%8C%87%E5%AF%BC/" title="无题">无题</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-02-05T15:21:15.701Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="content">介绍完 Redis 概述之后，本文我们就通过源码的方式，来安装一下 Redis 7.0。同时，也把阅读 Redis 的源码环境搭起来。
+前面我们讲过 Redis 一般是部署在 Linux 系统上面，所以我们这里，就在 Mac 或者是在 Linux 上进行搭建，Windows 的话，就不太建议你去浪费时间搞这个了。
+如果你手里只有 Windows 机器的话，也可以安一个虚拟机，在上面装一个 Linux，然后再去搭建 Redis 环境。后面我们可以用 IDE 远程连到这个虚拟机上进行 Debug，非常不建议你浪费时间在 Windows 上做 Redis 的编译或者是安装，没有啥太大意义。
+
+说明：本小节的内容整体还是比较简单的，如果小伙伴不知道如何搭建 Redis 7 源码环境或者不知道怎么查看一个 Redis 7 新特性实现的话，可以跟着本小节一步步操作，我也是希望能尽量照顾到各个基础水平的小伙伴，做好铺垫，打好基础，在刚开始学习时有个平滑的学习曲线，这样咱们后续学习就能减少在基础知识上的磕磕绊绊，这也是我们“先导基础篇”的设置初衷。
+当然，肯定有小伙伴基础水平很不错，已经完全掌握些细碎 ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC05%E7%AB%A0%E2%80%94%E5%AE%9E%E6%88%98%E5%BA%94%E7%94%A8%E7%AF%87%EF%BC%9ARedisString%E5%91%BD%E4%BB%A4%E4%B8%8E%E5%AE%9E%E6%88%98/" title="无题">无题</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-02-05T15:21:15.701Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="content">在前面的文章中，我们了解了 Redis 的基本功能，通过源码方式安装了 Redis，并搭建了 Redis 的源码运行环境。接下来将进入 “Redis 的实战应用篇”，在这部分我们将重点介绍 Redis 核心命令的使用，主要包括 Redis 中 String、List、Set、Hash 以及 Sorted Set 五大核心数据结构的命令，同时还会分析这五大数据结构的使用场景。
+本节作为 Redis 实战应用篇的第一篇，我们重点介绍 Redis 中 String 相关的命令以及应用场景。
+redis-cli 基础使用在开始正式介绍 String 的相关命令之前，我们需要先了解一下本篇执行 Redis 命令的工具 —— redis-cli。它是 Redis 自带的命令行客户端，可以将命令发送到 Redis 服务端执行并接收命令执行结果。
+在上一讲编译好的 Redis 的 src 目录下面，就可以看到 redis-cli 这个命令行客户端，如下图所示：
+
+直接执行这个 redis-cli 命令，它就会默认连到前面启动的 Redis 服务上。要是连其他远程的 Redis 服务，我们可以用 -h  ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2026/02/03/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BA%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1%20(DDD)%EF%BC%9A%E4%BB%8E%E5%88%86%E5%B1%82%E6%9E%B6%E6%9E%84%E5%88%B0%E4%B8%8A%E4%B8%8B%E6%96%87%E6%98%A0%E5%B0%84/" title="深入浅出领域驱动设计 (DDD)：从分层架构到上下文映射">深入浅出领域驱动设计 (DDD)：从分层架构到上下文映射</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-02-03T15:20:00.000Z" title="发表于 2026-02-03 23:20:00">2026-02-03</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/">技术分享</a></span></div><div class="content">在软件开发中，我们经常面临业务逻辑复杂、代码耦合度高、难以维护的困境。领域驱动设计 (Domain-Driven Design, DDD) 提供了一套完整的思想体系，帮助我们通过将软件实现与核心业务概念紧密绑定，来解决复杂业务系统的设计问题。
+本文将从战术设计（分层架构）和战略设计（限界上下文与映射）两个维度，为你梳理 DDD 的核心概念。
+一、 战术设计：分层架构 (Layered Architecture)DDD 的分层架构旨在通过 **关注点分离 (Separation of Concerns)**，确保业务逻辑的纯粹性，不被技术实现细节污染。
+1. 典型的四层架构在 DDD 中，标准的架构通常分为四层，从上到下依次为：
+(1) 用户接口层 (User Interface &#x2F; Presentation Layer)
+职责：系统与外界（人或外部系统）交互的窗口。负责向用户展示信息和解释用户指令。
+包含：Controller、DTO、API 接口定义。
+核心原则：不包含任何业务逻辑。只负责数据格式转换（如 JSON 转对象）和简单校验。
+
+(2) 应用层 (Applicat ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2025/06/09/Docker%E5%AE%B9%E5%99%A8-%E5%9F%BA%E7%A1%80%E7%AF%87/" title="Docker容器-基础篇">Docker容器-基础篇</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-06-09T13:23:00.000Z" title="发表于 2025-06-09 21:23:00">2025-06-09</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Docker/">Docker</a></span></div><div class="content">docker容器-基础篇1、docker容器的安装1.1 初始化安装安装docker容器需要先配置好一台centos虚拟机，并配置好网络连接，以及挂载完iso镜像文件。确保yum可以正常使用
+1234先安装必要的包yum -y install gccyum -y install gcc-c++yum install -y yum-utils
+
+配置stable镜像仓库 并从国内下载
+123456(阿里)yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo (官网)yum-config-manager --add-repo https://download.docker.com/linux/linux/centos/docker-re.repo配置完后可以使用yum install vim 测试一下yum是否还能正常使用，如不能，请检查当前网络环境，然后重新执行上一句命令。
+
+更新yum软件包索引（可以跳过、缓存yum加快下载速度）
+1yum makeca ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2025/06/05/MySQL%20MVCC%20&amp;%20%E5%B9%B6%E5%8F%91%E6%9B%B4%E6%96%B0%E5%AE%9E%E9%AA%8C%E7%AC%94%E8%AE%B0/" title="MySQL MVCC &amp; 并发更新实验笔记">MySQL MVCC &amp; 并发更新实验笔记</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-06-05T15:17:00.000Z" title="发表于 2025-06-05 23:17:00">2025-06-05</time></span></div><div class="content">MySQL MVCC &amp; 并发更新实验笔记
+本文记录了使用 HeidiSQL 和 MySQL InnoDB 引擎进行的 MVCC 实验过程，验证版本链行为、事务隔离可见性以及连接行为。
+
+
+⚠️ 一、数据库并发问题并发读写会引发以下四类经典问题：
+
+脏读（Dirty Read） 读取到了其他事务尚未提交的数据。
+
+不可重复读（Non-Repeatable Read） 在同一事务中多次读取同一行数据，每次结果不同（其他事务修改了这行并提交）。
+
+幻读（Phantom Read） 同一事务中两次执行相同条件的 SELECT，结果集行数不同（其他事务插入或删除了符合条件的行）。
+
+
+
+🔒 二、事务隔离级别（SQL 标准）
+
+
+隔离级别
+脏读
+不可重复读
+幻读
+实现方式
+
+
+
+READ UNCOMMITTED
+✅ 可能
+✅ 可能
+✅ 可能
+无 MVCC
+
+
+READ COMMITTED
+❌ 防止
+✅ 可能
+✅ 可能
+部分 MVCC
+
+
+REPEATABLE READ
+❌ 防止
+❌ 防止
+✅ 可能
+完整 MVCC
+
+
+SERIALIZABLE
+❌ 防止
+❌ 防止
+❌ 防止
+加锁&#x2 ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2025/06/03/CSS%20%E9%AB%98%E6%96%AF%E6%A8%A1%E7%B3%8A%E8%83%8C%E6%99%AF%E5%9B%BE%E7%9A%84%E5%AE%9E%E7%8E%B0%E6%8A%80%E5%B7%A7/" title="CSS 高斯模糊背景图的实现技巧">CSS 高斯模糊背景图的实现技巧</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-06-03T16:21:00.000Z" title="发表于 2025-06-04 00:21:00">2025-06-04</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%89%8D%E7%AB%AF/">前端</a></span></div><div class="content">CSS 高斯模糊背景图的实现技巧：完整实战与原理拆解在现代 Web 页面中，常见一种视觉效果：清晰的前景图 + 虚化的背景图层。这类设计可以让页面更加美观、聚焦重点，并广泛应用于音乐播放器、视频平台、官网头图等界面。
+本文将通过一个完整 HTML 示例，逐步剖析如何使用 padding + margin + blur 高效、安全地实现该效果，并详解背后的盒模型原理。
+
+📷 效果预览与结构概览我们最终实现的页面包含以下几种状态的背景展示：
+
+原始背景图（无处理）
+
+只加 padding
+
+加 padding + margin
+
+模糊背景图 + 清晰前景图
+
+
+
+✅ 核心原理：三步实现“模糊不偏移”的背景图步骤一：使用 padding 为模糊留出空间padding: 10px;
+模糊（blur）会向外扩散一定像素，因此必须预留空间。否则边缘会出现白边或被裁剪。
+
+视觉效果：图片像是“缩进”了，显示更多边缘内容。
+
+
+步骤二：使用 margin: -10px 拉回视觉偏移margin: -10px;
+因为上一步原内容区域被缩小了，所以我们使用负外边距将原区域拉回正确的位置，避免内容视觉错位 ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2025/06/03/JWT%20%E9%89%B4%E6%9D%83%E4%B8%AD%E7%9A%84%E5%8D%95%20Token%20%E4%B8%8E%E5%8F%8C%20Token%E6%96%B9%E6%A1%88%E5%AF%B9%E6%AF%94/" title="JWT 鉴权中的单 Token 与双 Token方案">JWT 鉴权中的单 Token 与双 Token方案</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-06-03T13:09:00.000Z" title="发表于 2025-06-03 21:09:00">2025-06-03</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java/">Java</a></span></div><div class="content">JWT 鉴权中的单 Token 与双 Token 方案对比：控制力、安全性与实用性解析在使用 JWT 进行身份验证与续签时，常见有两种方案：
+
+方案一：双 Token 模式（Access Token + Refresh Token）
+方案二：单 Token 模式（JWT 中嵌入续签时间）
+
+这两种方案都在社区中被使用，但在安全性、控制力和设计合理性上存在关键差异。本文将系统性地比较这两种方案，并解释为什么“双 Token 模式”在实际项目中被广泛采用。
+
+✅ 背景介绍方案一：双 Token 模式
+access_token：短期有效，用于访问受保护资源，通常 15-30 分钟过期；
+refresh_token：长期有效，用于换发新的 access_token，通常存放在 HttpOnly Cookie，1 小时~7 天过期。
+
+续签过程必须通过服务器验证 refresh_token，服务器主动决定是否签发新 token。
+方案二：单 Token 模式
+仅使用一个 JWT；
+JWT 中添加一个自定义字段，如 renew_after；
+当 token 尚未过期但已超过 renew_after ...</div></div></div><div class="recent-post-item"><div class="recent-post-info no-cover"><a class="article-title" href="/2025/06/01/CSS%E4%B8%AD%E7%9A%84Sticky%E5%AE%9A%E4%BD%8D/" title="CSS中的Sticky定位">CSS中的Sticky定位</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-06-01T07:21:00.000Z" title="发表于 2025-06-01 15:21:00">2025-06-01</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%89%8D%E7%AB%AF/">前端</a></span></div><div class="content">目标效果：右侧滚动条在最上方时，左侧导航栏距离顶端有一定距离当滚动条往下滑动时，左侧导航栏不会被划到画面外
+演示代码：html
+12345678&lt;div class=&quot;container&quot;&gt;      &lt;div class=&quot;left&quot;&gt;          &lt;div class=&quot;sticky-box&quot;&gt;              我是 sticky，滚动时会粘在视口顶部 10px          &lt;/div&gt;      &lt;/div&gt;    &lt;div class=&quot;right&quot;&gt;          &lt;p&gt;右侧内容&lt;/p&gt;      &lt;/div&gt;&lt;/div&gt;
+css
+123456789101112131415161718.container &#123;      display: flex;      align-items: flex-start;  &#125;    .left & ...</div></div></div><nav id="pagination"><div class="pagination"><a class="extend prev" rel="prev" href="/page/6/#content-inner"><i class="fas fa-chevron-left fa-fw"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/6/#content-inner">6</a><span class="page-number current">7</span><a class="page-number" href="/page/8/#content-inner">8</a><span class="space">&hellip;</span><a class="page-number" href="/page/11/#content-inner">11</a><a class="extend next" rel="next" href="/page/8/#content-inner"><i class="fas fa-chevron-right fa-fw"></i></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+            </div>
+            <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Docker/"><span class="card-category-list-name">Docker</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Hexo/"><span class="card-category-list-name">Hexo</span><span class="card-category-list-count">5</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java/"><span class="card-category-list-name">Java</span><span class="card-category-list-count">5</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%89%8D%E7%AB%AF/"><span class="card-category-list-name">前端</span><span class="card-category-list-count">4</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E5%88%86%E4%BA%AB/"><span class="card-category-list-name">技术分享</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E8%BD%AC%E5%8F%91/"><span class="card-category-list-name">转发</span><span class="card-category-list-count">4</span></a></li>
+            </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/DDD/" style="font-size: 1.1em; color: #999">DDD</a> <a href="/tags/Blog/" style="font-size: 1.3em; color: #99a1ac">Blog</a> <a href="/tags/%E8%B7%A8%E5%9F%9F/" style="font-size: 1.1em; color: #999">跨域</a> <a href="/tags/CSS3/" style="font-size: 1.3em; color: #99a1ac">CSS3</a> <a href="/tags/Java/" style="font-size: 1.5em; color: #99a9bf">Java</a> <a href="/tags/%E5%89%8D%E7%AB%AF/" style="font-size: 1.5em; color: #99a9bf">前端</a> <a href="/tags/Obsidian/" style="font-size: 1.3em; color: #99a1ac">Obsidian</a> <a href="/tags/NodeJs/" style="font-size: 1.1em; color: #999">NodeJs</a> <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" style="font-size: 1.1em; color: #999">架构设计</a> <a href="/tags/%E8%84%9A%E6%9C%AC/" style="font-size: 1.3em; color: #99a1ac">脚本</a> <a href="/tags/JWT/" style="font-size: 1.1em; color: #999">JWT</a> <a href="/tags/Docker/" style="font-size: 1.1em; color: #999">Docker</a> <a href="/tags/Bat%E8%84%9A%E6%9C%AC/" style="font-size: 1.3em; color: #99a1ac">Bat脚本</a> <a href="/tags/%E5%90%8E%E7%AB%AF%E5%BC%80%E5%8F%91/" style="font-size: 1.1em; color: #999">后端开发</a> <a href="/tags/Github-Action/" style="font-size: 1.3em; color: #99a1ac">Github Action</a> <a href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" style="font-size: 1.1em; color: #999">微服务</a> <a href="/tags/Hexo/" style="font-size: 1.3em; color: #99a1ac">Hexo</a></div></div><div class="card-widget card-archives"><div class="item-headline"><i class="fas fa-archive"></i><span>归档</span></div><ul class="card-archive-list"><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2026/02/"><span class="card-archive-list-date">二月 2026</span><span class="card-archive-list-count">65</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2025/06/"><span class="card-archive-list-date">六月 2025</span><span class="card-archive-list-count">5</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2025/05/"><span class="card-archive-list-date">五月 2025</span><span class="card-archive-list-count">3</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/08/"><span class="card-archive-list-date">八月 2024</span><span class="card-archive-list-count">2</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/07/"><span class="card-archive-list-date">七月 2024</span><span class="card-archive-list-count">1</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/06/"><span class="card-archive-list-date">六月 2024</span><span class="card-archive-list-count">2</span></a></li><li class="card-archive-list-item"><a class="card-archive-list-link" href="/archives/2024/05/"><span class="card-archive-list-date">五月 2024</span><span class="card-archive-list-count">25</span></a></li></ul></div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站资讯</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">103</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总访问量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-02-05T15:21:30.599Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"><script>window.typedJSFn = {
+  init: (str) => {
+    window.typed = new Typed('#subtitle', Object.assign({
+      strings: str,
+      startDelay: 300,
+      typeSpeed: 150,
+      loop: true,
+      backSpeed: 50,
+    }, null))
+  },
+  run: (subtitleType) => {
+    if (true) {
+      if (typeof Typed === 'function') {
+        subtitleType()
+      } else {
+        btf.getScript('https://cdn.jsdelivr.net/npm/typed.js@2.1.0/dist/typed.umd.min.js').then(subtitleType)
+      }
+    } else {
+      subtitleType()
+    }
+  }
+}
+btf.addGlobalFn('pjaxSend', () => { typed.destroy() }, 'typedDestroy')
+</script><script>function subtitleType () {
+  if (true) {
+    typedJSFn.init(["今日事&#44;今日毕","Never put off till tomorrow what you can do today"])
+  } else {
+    document.getElementById("subtitle").textContent = "今日事&#44;今日毕"
+  }
+}
+typedJSFn.run(subtitleType)</script></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

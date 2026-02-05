@@ -1,0 +1,382 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="介绍完 IO 多路复用的好处以及 Linux 系统中 epoll 的基本使用之后，我们接下来就展开分析一下 Redis 对 I&#x2F;O 多路复用模块的封装。 正如前面在 epoll 示例中看到的，我们的程序代码其实是围绕 epoll 监听到的各种事件展开的，也就是我们常说的事件驱动。为了统一多种 IO 多路复用器的实现，Redis 构建了一个 ae 库，全称叫 a simple event-">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC28%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A0%B8%E5%BF%83%E6%A1%86%E6%9E%B6%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="介绍完 IO 多路复用的好处以及 Linux 系统中 epoll 的基本使用之后，我们接下来就展开分析一下 Redis 对 I&#x2F;O 多路复用模块的封装。 正如前面在 epoll 示例中看到的，我们的程序代码其实是围绕 epoll 监听到的各种事件展开的，也就是我们常说的事件驱动。为了统一多种 IO 多路复用器的实现，Redis 构建了一个 ae 库，全称叫 a simple event-">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.705Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.706Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC28%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A0%B8%E5%BF%83%E6%A1%86%E6%9E%B6%E8%A7%A3%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.705Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.706Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>介绍完 IO 多路复用的好处以及 Linux 系统中 epoll 的基本使用之后，我们接下来就展开分析一下 Redis 对 I&#x2F;O 多路复用模块的封装。</p>
+<p>正如前面在 epoll 示例中看到的，我们的程序代码其实是围绕 epoll 监听到的各种事件展开的，也就是我们常说的<strong>事件驱动</strong>。为了统一多种 IO 多路复用器的实现，Redis 构建了一个 <strong>ae 库</strong>，全称叫 <code>a simple event-driven programming library</code>，如下图所示：</p>
+<p><img src="https://p9-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/158e7ace52064ca7afda1e7c287ff7eb~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<h2 id="aeApiState-解析"><a href="#aeApiState-解析" class="headerlink" title="aeApiState 解析"></a>aeApiState 解析</h2><p>在 ae 这个库里面，Redis 通过 <code>aeApiState 结构体</code>对 epoll、select、kqueue、evport 四种 IO 多路复用的实现进行了适配，<strong>让上层调用方感知不到不同系统在 I&#x2F;O 多路复用实现上的差异性</strong>。对上述四种 I&#x2F;O 多路复用的适配分别对应 ae_epoll.c、ae_select.c、ae_kqueue.c、ae_evport.c 四个文件，后面我们依旧以最常用的 epoll 为例来介绍。</p>
+<p>首先来看 aeApiState 结构体，其中维护了 epoll 内核注册表的文件描述符，以及指向 epoll_event 缓冲区的指针，如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeApiState</span> &#123;</span></span><br><span class="line"> <span class="type">int</span> epfd; <span class="comment">// epoll监听的内核注册表的文件描述符</span></span><br><span class="line"> <span class="class"><span class="keyword">struct</span> <span class="title">epoll_event</span> *<span class="title">events</span>;</span> <span class="comment">// 指向epoll_event缓冲区</span></span><br><span class="line">&#125; aeApiState;</span><br></pre></td></tr></table></figure>
+
+<p>接下来看 Redis 为 I&#x2F;O 多路复用抽象出来的函数，<strong>这些函数在每个对应的适配实现中都存在，类似于面向对象编程中的接口方法</strong>。</p>
+<p>首先是 aeApiCreate() 函数，其核心功能是进行初始化。在 epoll 对应的实现中，会先创建 aeApiStat 实例并记录到 eventLoop-&gt;apidata 字段中，<code>eventLoop 是 Redis 事件驱动的核心结构体</code>，我们后面马上就会介绍。接下来初始化 aeApiStat-&gt;events 指向的 epoll_event 缓冲区（长度为 eventLoop-&gt;setsize 字段指定的长度），最后通过 epoll_create() 函数创建 epoll 专用文件描述符。</p>
+<p>第二个方法是 aeApiAddEvent(aeEventLoop *eventLoop, int fd, int mask) 。在 epoll 对应的实现中，aeApiAddEvent() 函数是对 epoll_ctl() 函数的封装，添加（或修改）对 fd 的监听事件。</p>
+<p>第三个方法是 aeApiDelEvent(aeEventLoop *eventLoop, int fd, int delmask) 。在 epoll 对应的实现中，aeApiDelEvent() 函数底层也是调用了 epoll_ctl() 函数，实现对 fd 监听事件的删除。</p>
+<p>最后看 aeApiPoll(aeEventLoop *eventLoop, struct timeval *tvp) 方法。在 epoll 对应的实现中，aeApiPoll() 函数会调用 epoll_wait() 函数等待监听的事件发生，当 epoll_wait() 函数返回的时候，已触发的事件会被存储到 aeApiState-&gt;events 缓冲区，紧接着会再次遍历 aeApiState-&gt;events 缓冲区将所有已触发事件转移到 eventLoop-&gt;fired 数组中（该数组中的元素是 aeFiredEvent 类型，其核心字段如下），后续在 aeEventLoop 事件循环中会处理 fired 数组。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeFiredEvent</span> &#123;</span></span><br><span class="line"> <span class="type">int</span> fd; <span class="comment">// 该事件关联的文件描述符</span></span><br><span class="line"> <span class="type">int</span> mask; <span class="comment">// 触发的事件</span></span><br><span class="line">&#125; aeFiredEvent;</span><br></pre></td></tr></table></figure>
+
+<p>另外，不同的 I&#x2F;O 多路复用实现中使用的 mask 值也不同，例如，epoll 使用 EPOLLIN、EPOLLOUT 分别表示可读、可写事件，kqueue 中则使用 EVFILT_READ、EVFILT_WRITE。在 Redis 中<code>统一使用</code> AE_READABLE、AE_WRITABLE 两个宏来表示可读、可写事件，所以在调用上述接口函数时传入的 mask 参数都是 <code>AE_READABLE</code>、<code>AE_WRITABLE</code>。</p>
+<h2 id="aeEventLoop-结构体"><a href="#aeEventLoop-结构体" class="headerlink" title="aeEventLoop 结构体"></a>aeEventLoop 结构体</h2><p>Redis 中的事件可以分为两大类：一类就是上面介绍的<strong>网络读写事件</strong>（也被称为文件事件，毕竟 Linux 中的网络连接都是使用文件描述符表示的）；另一类事件是<strong>时间事件</strong>，也就是 Redis 中定时触发的事件，比如说 Redis 定时去检查 Key 是不是已经过期了。</p>
+<p><strong>Redis 是通过事件循环 <code>aeEventLoop</code> 来统一处理网络事件和时间事件的。</strong></p>
+<p>下面先来看 aeEventLoop 结构体的核心字段以及具体含义，如下所示，这里重点关注 fired 指针和 timeEventHead 指针，分别维护了网络事件队列的头节点和时间事件队列的头节点，之后处理网络事件和时间事件的时候，就会按照这两个链表的顺序进行处理。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeEventLoop</span> &#123;</span></span><br><span class="line">    <span class="type">int</span> maxfd; <span class="comment">// 当前注册的文件描述符的最大值</span></span><br><span class="line">    <span class="type">int</span> setsize; <span class="comment">// 能够注册的文件描述符个数上限</span></span><br><span class="line">    <span class="comment">// 用于计算时间事件的唯一标识</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> timeEventNextId; </span><br><span class="line">    <span class="comment">// events指向了一个网络事件数组，记录了已经注册的网络事件，数组长度为setsize</span></span><br><span class="line">    aeFileEvent *events; </span><br><span class="line">    <span class="comment">// fired数组记录了被触发的网络事件</span></span><br><span class="line">    aeFiredEvent *fired; </span><br><span class="line">    <span class="comment">// timeEventHead指向了时间事件链表的头节点</span></span><br><span class="line">    aeTimeEvent *timeEventHead;</span><br><span class="line">    <span class="comment">// 停止的标识符，设置为1表示aeEventLoop事件循环已停止</span></span><br><span class="line">    <span class="type">int</span> stop;</span><br><span class="line">    <span class="comment">// Redis在不同平台会使用4种不同的I/O多路复用模型（evport、epoll、kueue、select），</span></span><br><span class="line">    <span class="comment">// apidata字段是对这四种模型的进一步封装，指向aeApiState一个实例</span></span><br><span class="line">    <span class="type">void</span> *apidata;</span><br><span class="line">    <span class="comment">// Redis主线程阻塞等待网络事件时，会在阻塞之前调用beforesleep函数，</span></span><br><span class="line">    <span class="comment">// 在被唤醒之后调用aftersleep函数</span></span><br><span class="line">    aeBeforeSleepProc *beforesleep;</span><br><span class="line">    aeBeforeSleepProc *aftersleep;</span><br><span class="line">    <span class="type">int</span> flags;</span><br><span class="line">&#125; aeEventLoop;</span><br></pre></td></tr></table></figure>
+
+<p>接下来，我们展开 aeEventLoop 中的几个关键结构体进行详细分析。</p>
+<p>首先是 <code>aeFileEvent 结构体</code>，它抽象了一个网络事件，其中维护了监听的事件以及处理相应事件的函数指针，其中四个字段都非常重要，具体含义如下所示：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeFileEvent</span> &#123;</span></span><br><span class="line"> <span class="comment">// 事件掩码，用来记录发生的事件，</span></span><br><span class="line"> <span class="comment">// 可选标志位为AE_READABLE(1)、AE_WRITABLE(2)、AE_BARRIER(4)</span></span><br><span class="line"> <span class="type">int</span> mask;</span><br><span class="line"> <span class="comment">// 如果发生可读事件，会调用rfileProc指向的函数进行处理</span></span><br><span class="line"> aeFileProc *rfileProc;</span><br><span class="line"> <span class="comment">// 如果发生可写事件，会调用wfileProc指向的函数进行处理</span></span><br><span class="line"> aeFileProc *wfileProc;</span><br><span class="line"> <span class="comment">// 指向对应的客户端对象</span></span><br><span class="line"> <span class="type">void</span> *clientData;</span><br><span class="line">&#125; aeFileEvent;</span><br></pre></td></tr></table></figure>
+
+<p>再来看 <code>aeTimeEvent 结构体</code>，它抽象了一个时间事件，其核心字段含义如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">aeTimeEvent</span> &#123;</span></span><br><span class="line">    <span class="type">long</span> <span class="type">long</span> id; <span class="comment">// 唯一标识，通过eventLoop-&gt;timeEventNextId字段计算得来</span></span><br><span class="line">    monotime when; <span class="comment">// 时间事件触发的时间戳（微秒级别）</span></span><br><span class="line">    aeTimeProc *timeProc; <span class="comment">// 处理该时间事件的函数</span></span><br><span class="line">    aeEventFinalizerProc *finalizerProc; <span class="comment">// 删除时间事件之前会调用该函数</span></span><br><span class="line">    <span class="type">void</span> *clientData; <span class="comment">// 该时间事件关联的客户端实例</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">aeTimeEvent</span> *<span class="title">prev</span>;</span> <span class="comment">// 前后指针</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">aeTimeEvent</span> *<span class="title">next</span>;</span></span><br><span class="line">    <span class="comment">// 当前时间事件被引用的次数，要释放该aeTimeEvent实例，需要refcount为0</span></span><br><span class="line">    <span class="type">int</span> refcount; </span><br><span class="line">&#125; aeTimeEvent;</span><br></pre></td></tr></table></figure>
+
+<h2 id="初始化-aeEventLoop"><a href="#初始化-aeEventLoop" class="headerlink" title="初始化 aeEventLoop"></a>初始化 aeEventLoop</h2><p>了解了上述核心结构体之后，我们再来看 Redis 是如何使用 aeEventLoop 这个结构体的。</p>
+<p>在 Redis 服务器启动时，会走 initServer() 函数，里面会调用 aeCreateEventLoop() 函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">server.el = aeCreateEventLoop(server.maxclients+CONFIG_FDSET_INCR);</span><br></pre></td></tr></table></figure>
+
+
+
+<p>在 aeCreateEventLoop() 函数中会初始化 aeEventLoop 实例的各个参数，其中的 setsize 参数设置为 maxclients + 128（预留），也就是说 aeEventLoop 中的 events 和 fired 字段指向的数组都是这个大小。同时，还会将 events 数组中所有 aeFileEvent 的 mask 字段初始化为 AE_NONE，表示不监听任何事件。</p>
+<p>接下来，Redis 会调用 listenToPort(server.port, &amp;server.ipfd) 函数监听指定的地址，底层依赖 socket()、bind(）、listen() 等网络编程库实现，并通过 fcntl() 函数将所有 Socket 设置为非阻塞。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">listenToPort</span><span class="params">(<span class="type">int</span> port, socketFds *sfd)</span> &#123;</span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line">    <span class="type">char</span> **bindaddr = server.bindaddr;</span><br><span class="line">    <span class="keyword">if</span> (server.bindaddr_count == <span class="number">0</span>) <span class="keyword">return</span> C_OK; <span class="comment">// 边界检查</span></span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; server.bindaddr_count; j++) &#123;</span><br><span class="line">        <span class="type">char</span>* addr = bindaddr[j];</span><br><span class="line">        <span class="type">int</span> optional = *addr == <span class="string">&#x27;-&#x27;</span>; </span><br><span class="line">        <span class="keyword">if</span> (optional) addr++;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">strchr</span>(addr,<span class="string">&#x27;:&#x27;</span>)) &#123; <span class="comment">// 对IPv6地址的处理</span></span><br><span class="line">            sfd-&gt;fd[sfd-&gt;count] = anetTcp6Server(server.neterr,port,addr,server.tcp_backlog);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;  <span class="comment">// 对IPv4地址的处理</span></span><br><span class="line">            sfd-&gt;fd[sfd-&gt;count] = anetTcpServer(server.neterr,port,addr,server.tcp_backlog);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (sfd-&gt;fd[sfd-&gt;count] == ANET_ERR) &#123;</span><br><span class="line">            ... <span class="comment">// 省略异常处理逻辑</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (server.socket_mark_id &gt; <span class="number">0</span>) anetSetSockMarkId(<span class="literal">NULL</span>, sfd-&gt;fd[sfd-&gt;count], server.socket_mark_id);</span><br><span class="line">        <span class="comment">// 设置成非阻塞</span></span><br><span class="line">        anetNonBlock(<span class="literal">NULL</span>,sfd-&gt;fd[sfd-&gt;count]);</span><br><span class="line">        anetCloexec(sfd-&gt;fd[sfd-&gt;count]);</span><br><span class="line">        sfd-&gt;count++;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> C_OK;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Redis 里面把 TCP Socket 编程的一些工具方法写到了 anet.c 文件里面，对这一部分感兴趣的小伙伴们可以去看看该文件的具体内容，这里就不再展示了。</p>
+<p>注意这个 listenToPort() 函数的两个参数：第一个 server.port 就是我们在 redis.conf 配置文件中 port 配置项指定的端口号，默认是 6379；第二个 server.ipdf 是一个 socketFds 实例，其中记录了当前这个 Redis Server 每个监听地址对应的文件描述符，也就是我们在 redis.conf 配置文件中，bind 字段指定监听的 IP 地址。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="class"><span class="keyword">struct</span> <span class="title">socketFds</span> &#123;</span></span><br><span class="line">    <span class="type">int</span> fd[CONFIG_BINDADDR_MAX]; <span class="comment">// 记录了每个监听地址对应的文件描述符</span></span><br><span class="line">    <span class="type">int</span> count;  <span class="comment">// fd数组的个数</span></span><br><span class="line">&#125; socketFds;</span><br></pre></td></tr></table></figure>
+
+
+
+<h2 id="注册监听"><a href="#注册监听" class="headerlink" title="注册监听"></a>注册监听</h2><p>在 initServer() 初始化中，完成 aeCreateEventLoop() 调用之后 ，Redis 还会调用 createSocketAcceptHandler(&amp;server.ipfd, acceptTcpHandler) 函数为 ipdf 中所有地址注册监听，最底层依赖 aeApiAddEvent() 函数实现，调用关系如下图所示：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/12cec2834422454d91be60512ae28aaf~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>aeApiAddEvent() 函数我们在前面介绍 ae 库的时候已经说过了，就是用来添加监听事件。</p>
+<p>这里还要注意的是，图中的 aeCreateFileEvent() 函数会将 acceptTcpHandler() 函数作为可读事件的处理函数记录到 ipfd 中所有文件描述符对应的 aeFileEvent 中，相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">createSocketAcceptHandler</span><span class="params">(socketFds *sfd, aeFileProc *accept_handler)</span>&#123;</span><br><span class="line">    <span class="type">int</span> j;</span><br><span class="line">    <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; sfd-&gt;count; j++) &#123;</span><br><span class="line">        <span class="comment">// 监听每个文件描述符上的可读事件</span></span><br><span class="line">        <span class="keyword">if</span> (aeCreateFileEvent(server.el, sfd-&gt;fd[j], AE_READABLE, </span><br><span class="line">              accept_handler, <span class="literal">NULL</span>) == AE_ERR) &#123; <span class="comment">// ...省略错误处理</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> C_OK;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">aeCreateFileEvent</span><span class="params">(aeEventLoop *eventLoop, <span class="type">int</span> fd, <span class="type">int</span> mask,</span></span><br><span class="line"><span class="params">        aeFileProc *proc, <span class="type">void</span> *clientData)</span> &#123;</span><br><span class="line">    <span class="comment">// 检查fd是否超过了aeEventLoop-&gt;setsize这个上限值</span></span><br><span class="line">    aeFileEvent *fe = &amp;eventLoop-&gt;events[fd];</span><br><span class="line">    <span class="comment">// 底层通过具体的I/O多路复用注册要监听的事件，例如，epoll_ctl()函数</span></span><br><span class="line">    <span class="keyword">if</span> (aeApiAddEvent(eventLoop, fd, mask) == <span class="number">-1</span>)</span><br><span class="line">        <span class="keyword">return</span> AE_ERR;</span><br><span class="line">    fe-&gt;mask |= mask;</span><br><span class="line">    <span class="comment">// 根据监听的事件，记录对应的处理函数</span></span><br><span class="line">    <span class="keyword">if</span> (mask &amp; AE_READABLE) fe-&gt;rfileProc = proc;</span><br><span class="line">    <span class="keyword">if</span> (mask &amp; AE_WRITABLE) fe-&gt;wfileProc = proc;</span><br><span class="line">    fe-&gt;clientData = clientData;</span><br><span class="line">    <span class="comment">// 省略其他检查逻辑</span></span><br><span class="line">    <span class="keyword">return</span> AE_OK;</span><br><span class="line">&#125; </span><br></pre></td></tr></table></figure>
+
+<h2 id="aeProcessEvents-函数"><a href="#aeProcessEvents-函数" class="headerlink" title="aeProcessEvents() 函数"></a>aeProcessEvents() 函数</h2><p>随着 initServer() 函数的调用完成，上述操作也会一并完成，ae 库里面最基础的东西都已经初始化好了。这个时候，Redis 已经可以做好了在 bind 地址上的监听，可以接收客户端的建连请求了。接下来，Redis 在 main() 函数会调用 aeMain() 函数，其中会循环调用 aeProcessEvents() 函数来处理网络事件和时间事件，<strong>它也是 Redis 处理事件驱动的框架逻辑所在</strong>。</p>
+<p>这里首先关注 aeProcessEvents() 函数的第二个参数 flags，我们可以通过指定 flags 的值，控制 aeProcessEvents() 需要处理的事件类型，相关的取值如下：</p>
+<p><img src="https://p6-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4c145224d19b45c2b78e95b3dc3745e7~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>下面是 flags 参数中标志位的具体含义。</p>
+<ul>
+<li><p>flags 参数为 0 时，aeProcessEvents() 函数不会执行任何逻辑，直接返回。</p>
+</li>
+<li><p>包含了 AE_FILE_EVENTS、AE_TIME_EVENTS、AE_ALL_EVENTS 标志位的时候，aeProcessEvents() 函数会分别处理网络事件、时间事件或者“网络事件+时间事件”。</p>
+</li>
+<li><p>包含 AE_DONT_WAIT 标志位的时候，aeProcessEvents() 函数在处理完能处理的事件之后，会立即返回，不会进行等待。</p>
+</li>
+<li><p>包含 AE_CALL_AFTER_SLEEP、AE_CALL_BEFORE_SLEEP 标志位时，aeProcessEvents() 函数在调用 aeApiPoll() 阻塞等待网络事件之前、之后，会分别执行 aeEventLoop 的 beforesleep&#x2F;aftersleep 回调函数。</p>
+</li>
+</ul>
+<p>在 aeMain() 中使用的 flags 参数设置了AE_ALL_EVENTS、AE_CALL_BEFORE_SLEEP、 AE_CALL_AFTER_SLEEP 三个标记位，我们以此为例来看 aeProcessEvents() 函数的核心逻辑。</p>
+<ol>
+<li><p>因为要包含 AE_ALL_EVENTS 标记，这里的 aeProcessEvents() 调用是需要处理时间事件的，它会通过 usUntilEarliestTimer() 函数遍历时间事件链表，也就是前面介绍的 aeEventLoop-&gt;timeEventHead 指针，它指向时间事件列表的头节点，这个列表里的时间事件是无序的，所以 usUntilEarliestTimer() 会遍历整个列表，才能找到距离当前最近的、即将要触发的时间事件。</p>
+</li>
+<li><p>接下来，因为包含 AE_CALL_BEFORE_SLEEP 标记位，aeProcessEvents() 会调用 aeEventLoop-&gt;beforesleep 函数，其中具体做了什么事情，后面我们会详细展开分析，这里小伙伴们可以先不必深入研究。</p>
+</li>
+<li><p>然后，就是 aeProcessEvents() 函数<strong>最核心一个操作 —— 调用 aeApiPoll() 函数</strong>，阻塞监听文件事件。这里阻塞的超时时长，就是第一步中计算出来的、距离最近时间事件的时间差。</p>
+</li>
+<li><p>在 aeApiPoll() 函数返回之后， aeProcessEvents() 还会调用 aftersleep() 函数，它一般与前面说的 beforesleep() 函数成对出现，做一些后置处理。aftersleep() 函数的内容我们放到后面的小节详细介绍。</p>
+</li>
+<li><p>接下来我们要聚焦于网络事件的处理逻辑。首先要明确，在 aeApiPoll() 函数返回的时候，只可能是两个原因中的一个：要么是注册的 Socket 发生了我们监听的事件，要么是超时时间到了。如果是第一个原因的话，aeApiPoll() 函数返回就会返回监听到的事件个数，下面我们就可以开始处理 aeEventLoop-&gt;fired 数组中记录的事件了。</p>
+<p>默认情况下，这里会先处理一个 Socket 上的可读事件，也就是调用对应 aeFileEvent 的 rfileProc 函数，然后处理连接上的可写事件，也就是调用对应 aeFileEvent 的 wfileProc 函数。</p>
+<p>这里有个逻辑需要单独说明一下，前文介绍 aeFileEvent 中 mask 字段时提到，其中可以设置我们关注的事件，还可以设置一个 AE_BARRIER 标志位，它的功能就是<code>让可读、可写事件的处理顺序翻转，也就是先处理可写事件，再处理可读事件</code>。至于读写顺序为什么翻转，我们会在后面举例介绍，下面是这段处理网络事件的逻辑：</p>
+<pre><code class="c">    for (j = 0; j &lt; numevents; j++) &#123;
+        int fd = eventLoop-&gt;fired[j].fd;
+        aeFileEvent *fe = &amp;eventLoop-&gt;events[fd];
+        int mask = eventLoop-&gt;fired[j].mask;
+        int fired = 0; 
+        // 检查AE_BARRIER标志
+        int invert = fe-&gt;mask &amp; AE_BARRIER;
+
+        if (!invert &amp;&amp; fe-&gt;mask &amp; mask &amp; AE_READABLE) &#123; 
+            // 正常情况先会调用rfileProc函数处理可读事件
+            fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+            fired++;
+            fe = &amp;eventLoop-&gt;events[fd];
+        &#125;
+        
+        if (fe-&gt;mask &amp; mask &amp; AE_WRITABLE) &#123; 
+            if (!fired || fe-&gt;wfileProc != fe-&gt;rfileProc) &#123;
+                // 调用wfileProc函数处理可写事件
+                fe-&gt;wfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+                fired++;
+            &#125;
+        &#125;
+
+        if (invert) &#123; // 如果设置了AE_BARRIER标志，就会先处理可写时间，再处理可读事件
+            fe = &amp;eventLoop-&gt;events[fd]; 
+            if ((fe-&gt;mask &amp; mask &amp; AE_READABLE) &amp;&amp;
+                (!fired || fe-&gt;wfileProc != fe-&gt;rfileProc))
+            &#123;
+                fe-&gt;rfileProc(eventLoop,fd,fe-&gt;clientData,mask);
+                fired++;
+            &#125;
+        &#125;
+        processed++;
+    &#125;
+    
+</code></pre>
+</li>
+<li><p>完成网络事件的处理之后，aeProcessEvents() 紧接着会调用 processTimeEvents() 函数处理到期的时间事件。后面我们将单独拿出一节来介绍 Redis 中有哪些时间事件、各个时间事件触发的时机等相关细节，这里重点还是关注 processTimeEvents() 函数的实现框架。</p>
+<p><strong>processTimeEvents() 函数的核心逻辑就是从 aeEventLoop-&gt;timeEventHead 链表里面，找到已经到期的时间事件，并进行处理</strong>。在遍历 timeEventHead 链表的 while 循环里，我们看到了两个分支。</p>
+<pre><code class="c">  static int processTimeEvents(aeEventLoop *eventLoop) &#123;
+      int processed = 0;
+      aeTimeEvent *te;
+      long long maxId;
+      te = eventLoop-&gt;timeEventHead;
+      maxId = eventLoop-&gt;timeEventNextId-1;
+      monotime now = getMonotonicUs();
+      while(te) &#123;
+          long long id;
+          // 时间事件已经被删除
+          if (te-&gt;id == AE_DELETED_EVENT_ID) &#123;
+              aeTimeEvent *next = te-&gt;next;
+              if (te-&gt;refcount) &#123; // 是否还被引用，如果还被引用，则会被暂时忽略
+                  te = next;
+                  continue;
+              &#125;
+              // 下面是链表删除的逻辑
+              if (te-&gt;prev) 
+                  te-&gt;prev-&gt;next = te-&gt;next;
+              else
+                  eventLoop-&gt;timeEventHead = te-&gt;next;
+              if (te-&gt;next)
+                  te-&gt;next-&gt;prev = te-&gt;prev;
+              // 如果有finalizerProc函数，需要调一下，进行一些释放前的处理
+              if (te-&gt;finalizerProc) &#123; 
+                  te-&gt;finalizerProc(eventLoop, te-&gt;clientData);
+                  now = getMonotonicUs();
+              &#125;
+              zfree(te);
+              te = next;
+              continue;
+          &#125;
+
+          if (te-&gt;id &gt; maxId) &#123;
+              te = te-&gt;next;
+              continue;
+          &#125;
+
+          if (te-&gt;when &lt;= now) &#123; // 与当前时间戳比较，决定是否触发该时间事件
+              int retval;
+              id = te-&gt;id;
+              te-&gt;refcount++;
+              // 触发事件
+              retval = te-&gt;timeProc(eventLoop, id, te-&gt;clientData);
+              te-&gt;refcount--;
+              processed++;
+              now = getMonotonicUs();
+              if (retval != AE_NOMORE) &#123; // 更新下次触发的时间戳
+                  te-&gt;when = now + retval * 1000;
+              &#125; else &#123; // 之后不再触发该事件
+                  te-&gt;id = AE_DELETED_EVENT_ID;
+              &#125;
+          &#125;
+          te = te-&gt;next;
+      &#125;
+      return processed;
+  &#125;
+</code></pre>
+</li>
+</ol>
+<p>在第一个 if 分支里面，Redis 会去检查每个 aeTimeEvent 元素的 id 值是否为 AE_DELETED_EVENT_ID（具体值是 -1 ），且 refcount 为 0，如果满足这两个条件，表示该时间事件之后不会再触发，且没有被其他逻辑使用，此时就可以将该 aeTimeEvent 元素从链表中删除并释放掉，删除的时候，还会调用 finalizerProc() 回调函数进行一些释放前的处理。</p>
+<p>第二个分支里面，检查每个 aeTimeEvent 元素是否已到期，如果已到期，则触发其 timeProc 回调函数。timeProc() 函数返回的是一个 int 值，表示该时间事件下次的触发时间：如果返回 -1，我们就认为该时间事件是一次性的，之后不会再触发，此时就要将其 id 设置为 -1，等待之后再次遍历 timeEventHead 链表的时候删除；否则，更新其 when 字段，等待下次触发。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>在这一节中，我们重点介绍了 Redis 事件驱动框架（ae 库）的核心实现。</p>
+<ul>
+<li>首先，我们深入分析了 ae 库的设计理念；</li>
+</ul>
+<!---->
+
+<ul>
+<li>然后以 Linux 平台为例，分析了 aeApiState 结构体的实现；</li>
+</ul>
+<!---->
+
+<ul>
+<li>接下来分析了 Redis 中对网络事件（<code>aeFileEvent</code>）以及时间事件（<code>aeTimeEvent</code>）的抽象，以及处理事件的抽象 —— aeEventLoop 结构体；</li>
+</ul>
+<!---->
+
+<ul>
+<li>最后，我们深入剖析了 aeEventLoop 初始化、注册监听以及处理事件的核心逻辑。</li>
+</ul>
+<p>在接下来的几节中，我将带领小伙伴们深入分析 Redis 的建连、读写请求处理以及响应返回的核心实现，在这个过程中，小伙伴们也会对 Redis 的事件驱动逻辑有更深的理解。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC28%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A0%B8%E5%BF%83%E6%A1%86%E6%9E%B6%E8%A7%A3%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC28%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E4%BA%8B%E4%BB%B6%E9%A9%B1%E5%8A%A8%E6%A0%B8%E5%BF%83%E6%A1%86%E6%9E%B6%E8%A7%A3%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC24%E7%AB%A0%E2%80%94%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%AF%87%EF%BC%9Askiplist%E5%8E%9F%E7%90%86%E4%B8%8E%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC27%E7%AB%A0%E2%80%94%E5%86%85%E6%A0%B8%E8%A7%A3%E6%9E%90%E7%AF%87%EF%BC%9ARedis%E7%BA%BF%E7%A8%8B%E6%A8%A1%E5%9E%8B%E4%B8%8EIO%E6%A8%A1%E5%9E%8B%E7%9A%84%E8%BF%9B%E5%8C%96%E5%8F%B2/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#aeApiState-%E8%A7%A3%E6%9E%90"><span class="toc-number">1.</span> <span class="toc-text">aeApiState 解析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#aeEventLoop-%E7%BB%93%E6%9E%84%E4%BD%93"><span class="toc-number">2.</span> <span class="toc-text">aeEventLoop 结构体</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9D%E5%A7%8B%E5%8C%96-aeEventLoop"><span class="toc-number">3.</span> <span class="toc-text">初始化 aeEventLoop</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B3%A8%E5%86%8C%E7%9B%91%E5%90%AC"><span class="toc-number">4.</span> <span class="toc-text">注册监听</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#aeProcessEvents-%E5%87%BD%E6%95%B0"><span class="toc-number">5.</span> <span class="toc-text">aeProcessEvents() 函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">6.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

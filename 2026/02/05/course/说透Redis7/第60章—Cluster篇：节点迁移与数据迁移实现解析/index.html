@@ -1,0 +1,286 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="在前面的文章中，我们已经完整介绍了 Redis Cluster 启动流程，以及完整的 failover 流程，对应的核心实现和关键函数也进行了说明和介绍。这一节，我们再来讨论一下 Redis Cluster 在 Slave 漂移以及数据迁移方面的功能。 Slave 节点漂移在 clusterCron() 这个周期性任务中，除了前面介绍的定时发送 PING 消息、触发 failover 操作之外，还">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC60%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9A%E8%8A%82%E7%82%B9%E8%BF%81%E7%A7%BB%E4%B8%8E%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="在前面的文章中，我们已经完整介绍了 Redis Cluster 启动流程，以及完整的 failover 流程，对应的核心实现和关键函数也进行了说明和介绍。这一节，我们再来讨论一下 Redis Cluster 在 Slave 漂移以及数据迁移方面的功能。 Slave 节点漂移在 clusterCron() 这个周期性任务中，除了前面介绍的定时发送 PING 消息、触发 failover 操作之外，还">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:21:15.711Z">
+<meta property="article:modified_time" content="2026-02-05T15:21:15.711Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC60%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9A%E8%8A%82%E7%82%B9%E8%BF%81%E7%A7%BB%E4%B8%8E%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:21:15'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:21:15.711Z" title="更新于 2026-02-05 23:21:15">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><p>在前面的文章中，我们已经完整介绍了 Redis Cluster 启动流程，以及完整的 failover 流程，对应的核心实现和关键函数也进行了说明和介绍。这一节，我们再来讨论一下 Redis Cluster 在 Slave 漂移以及数据迁移方面的功能。</p>
+<h2 id="Slave-节点漂移"><a href="#Slave-节点漂移" class="headerlink" title="Slave 节点漂移"></a>Slave 节点漂移</h2><p>在 clusterCron() 这个周期性任务中，除了前面介绍的定时发送 PING 消息、触发 failover 操作之外，还会检查 Master 的单点问题。所谓“单点 Master 问题”意思就是：一个 Master 节点下没有任何可用的 Slave 节点存在，如果此时 Master 节点发生了故障，整个 Redis Cluster 将进入不可用的状态。</p>
+<p>为了解决这个问题，Redis Cluster 提供了 Slave 节点漂移的功能，redis.conf 配置文件中的 cluster-allow-replica-migration 配置项为该功能的开关。Slave 节点漂移的核心原理是：当 Redis Cluster 发现单点 Master 的时候，会从其他拥有多个可用 Slave 的 Master 节点那里，借用一个 Slave 节点，从而解决单点 Master 的问题。</p>
+<p>如下图左侧所示，Master1 节点处于单点状态，通过将 Slave2 节点漂移成 Master1 节点的 Slave，解除了其单点状态。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/80bba45a89564c9f8eb0a7da6f52215d~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>每个 Slave 节点在定期执行 clusterCron() 函数的时候，都会对每个 Master 节点的 clusterNode-&gt;slaves 列表进行检查，计算其可用的 Slave 节点数量。如果发现 Master 节点下没有可用的 Slave 节点，且当前 Master 负责管理多个 slot，则会将其判定为单点 Master。在计算单点 Master 的同时，还会计算 max_slaves、this_slaves 两个辅助变量，max_slaves 记录了当前可用 Slave 节点数的最大值，this_slaves 记录了当前这个主从复制组中的可用 Slave 节点数。</p>
+<p>如果当前 Slave 在上述检查中发现了单点 Master，且当前 Slave 节点所在的主从复制组中可用的 Slave 节点数最多，则当前节点可以调用 clusterHandleSlaveMigration() 函数发起 Slave 节点漂移。首先检查整个 Redis Cluster 的状态，在 Redis Cluster 状态正常的情况下，才会进行后续的漂移操作。在 redis.conf 配置文件中，有个 cluster-migration-barrier 配置项，它指定了每个 Master 至少要有多少个可用的 Slave 节点才算安全。这里会检查当前主从复制组中可用的 Slave 节点数量是否超过了cluster-migration-barrier 配置项指定的阈值（默认值为 1），如果没有超过该阈值，则无法继续外迁 Slave 节点。</p>
+<p>下面简单描述一下 Slave 漂移的核心流程。</p>
+<ol>
+<li><p>首先，确定要进行漂移的候选者。这里会迭代 clusterState-&gt;nodes 列表来查找有单点问题的 Master，然后从有最多 Slave 节点的主从复制组中，查找 name 最小的 Slave 节点作为漂移的候选者。</p>
+</li>
+<li><p>假设当前 Slave 节点就是 Slave 漂移的候选节点，此时，如果存在单点 Master 节点，并且其单点状态持续了 5 秒以上，就可以调用 clusterSetMaster() 函数，将当前 Slave 节点切换成单点 Master 的 Slave 节点，从而解除该 Master 的单点问题。clusterSetMaster() 函数会将当前 Slave 节点从原 Master 节点的 slaves 列表迁移到新 Master 的 slaves 列表中，然后执行 replicationSetMaster() 函数与新 Master 节点建立连接，开始一次全量的主从复制。</p>
+</li>
+</ol>
+<h2 id="slot-迁移"><a href="#slot-迁移" class="headerlink" title="slot 迁移"></a>slot 迁移</h2><p>在 Redis Cluster 上线运行一段时间之后，可能无法继续支持业务的流程增长，这个时候，就需要对 Redis Cluster 进行<code>扩容</code>，向 Redis Cluster 中新增一批节点，使整个 Redis Cluster 集群能够存储更大的数据量，支持更高的 QPS。在添加完新节点之后，我们需要将原有 Master 节点中负责管理的一部分 slot ，迁移到新增加的 Master 节点。</p>
+<p>除了扩容的场景，Redis Cluster <code>缩容</code>的场景也是可能出现的，比如下线一部分 Master 节点，此时我们就需要将下线 Master 节点负责的 slot 迁移到其他 Master 节点中。</p>
+<p>无论是上述哪种场景，都会涉及到 slot 以及其中数据的迁移，此时就需要使用到 <code>CLUSTER SETSLOT</code> 命令。这里我们举个例子，假设需要将编号为 100 的 slot 从节点 A 迁移到节点 B，需要依次执行下面的步骤：</p>
+<ol>
+<li>在节点 B 中执行 <code>CLUSTER SETSLOT 100 IMPORTING A-name</code> 命令。</li>
+<li>在节点 A 中执行 <code>CLUSTER SETSLOT 100 MIGRATING B-name</code> 命令。</li>
+<li>之后，在节点 A 上执行 <code>CLUSTER GETKEYSINSLOT 100 &#123;count&#125;</code> 命令，从 slot 100 中获取 count 个 Key，并执行 <code>MIGRATE B-host B-port &quot;&quot; 0 1000 KEYS key [key ...] </code>将上述获取到的 Key 从节点 A 迁移到节点 B（DB 的编号由参数 0 指定，1000 则是超时时长，单位为毫秒），循环该过程，直至 slot 100 中的全部 Key 都迁移到节点 A 中。</li>
+<li>slot 100 中全部的 Key 都迁移完成之后，需要依次在节点 B 和节点 A 上都执行 <code>CLUSTER SETSLOT 100 NODE B-name</code> 命令，明确 slot 100 已经不再由 A 节点负责管理，而是由 B 节点负责管理。之后，slot 100 的变更将会随着 PING 等消息传播到整个 Redis Cluster。</li>
+</ol>
+<h3 id="IMPORTING、MIGRATING-状态"><a href="#IMPORTING、MIGRATING-状态" class="headerlink" title="IMPORTING、MIGRATING 状态"></a>IMPORTING、MIGRATING 状态</h3><p>了解了 slot 迁移的基本操作之后，下面我们展开介绍一下这些命令底层分别执行了哪些逻辑。</p>
+<p>首先是 <code>CLUSTER SETSLOT 100 IMPORTING A-name</code> 命令，这条命令会修改节点 B 的视图，将 slot 100 设置为 IMPORT 状态，其实就是将节点 B 的 <code>clusterState-&gt;importing_slots_from[100]</code> 指向节点 A。</p>
+<p>然后，是 <code>CLUSTER SETSLOT 100 MIGRATING B-name</code> 命令，它是在节点 A 上执行的，它会修改节点 A 的视图，将 slot 100 设置为 MIGRATING 状态，其实就是将 <code>clusterState-&gt;migrating_slots_to[100]</code> 指向节点 B。</p>
+<p>之所以执行设置这两个状态，是为了处理后续 slot 迁移过程中收到的客户端请求。如果我们迁移过程中，一个客户端来请求 slot 100 中的 Key1，当 GET Key1 命令发给节点 A 时，如下图调用栈所示，节点 A 在命令执行之前，会调用 getNodeByQuery() 节点检查 slot 100 的状态：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/4d213785a6da42369dd2d8b69237e8e0~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<p>该函数会发现 slot 100 处于 MIGRATING 状态，如果访问的目标 Key 1 还在节点 A 中，则继续后续的访问操作。如果访问的目标 Key 1 已经被迁移到了节点 B 中，则返回 ASK 错误以及节点 B 对应的 clusterNode 实例，最终返回给客户端的是 ASK 错误以及节点 B 的 ip 和端口，客户端在收到 ASK 错误之后，会去节点 B 访问目标 Key1。</p>
+<p>接下来，客户端会先向节点 B 发送 ASKING 命令，该命令会在对应的 client 上添加 CLIENT_ASKING 标记。然后，客户端才会发送原来访问 Key1 的命令。节点 B 在执行 getNodeByQuery() 函数时会发现 slot 100 处于 IMPORTING 状态，正常执行后续访问逻辑。</p>
+<p>有的同学可能会问，为什么客户端在访问节点 B 的时候，需要先发送 ASKING 命令呢？直接发送原始的访问命令不可以吗？我们可以从 getNodeByQuery() 函数的下面这段代码找到答案：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line">clusterNode *<span class="title function_">getNodeByQuery</span><span class="params">(...)</span> &#123;</span><br><span class="line"></span><br><span class="line">    clusterNode *n = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他代码</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ms-&gt;count; i++) &#123;</span><br><span class="line"></span><br><span class="line">        ... <span class="comment">// 省略其他代码</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; numkeys; j++) &#123; <span class="comment">// 解析一条命令中的Key</span></span><br><span class="line"></span><br><span class="line">            robj *thiskey = margv[keyindex[j]];</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 计算第一个Key所在的槽位，我们假设就是Key1</span></span><br><span class="line"></span><br><span class="line">            <span class="type">int</span> thisslot = keyHashSlot((<span class="type">char</span>*)thiskey-&gt;ptr, </span><br><span class="line"></span><br><span class="line">                    sdslen(thiskey-&gt;ptr));</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (firstkey == <span class="literal">NULL</span>) &#123;</span><br><span class="line"></span><br><span class="line">                slot = thisslot;</span><br><span class="line"></span><br><span class="line">                n = server.cluster-&gt;slots[slot]; <span class="comment">// 当前负责slot 100的是节点A</span></span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (n == myself &amp;&amp;</span><br><span class="line"></span><br><span class="line">                    server.cluster-&gt;migrating_slots_to[slot] != <span class="literal">NULL</span>)</span><br><span class="line"></span><br><span class="line">                &#123;</span><br><span class="line"></span><br><span class="line">                    migrating_slot = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">                &#125;<span class="keyword">else</span> <span class="keyword">if</span> (server.cluster-&gt;importing_slots_from[slot]!= <span class="literal">NULL</span>) &#123;</span><br><span class="line"></span><br><span class="line">                    <span class="comment">// slot 100在节点B的视角中，处于IMPORTING状态</span></span><br><span class="line"></span><br><span class="line">                    importing_slot = <span class="number">1</span>; </span><br><span class="line"></span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">            &#125; </span><br><span class="line"></span><br><span class="line">            ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ... <span class="comment">// 省略其他逻辑</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// 只有设置了ASKING标识才能走进下面的分支</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (importing_slot &amp;&amp; </span><br><span class="line"></span><br><span class="line">            (c-&gt;flags &amp; CLIENT_ASKING || cmd-&gt;flags &amp; CMD_ASKING)) &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (multiple_keys &amp;&amp; missing_keys) &#123; </span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (error_code) *error_code = CLUSTER_REDIR_UNSTABLE;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        &#125; <span class="keyword">else</span> &#123; </span><br><span class="line"></span><br><span class="line">            <span class="comment">// 节点B发现slot 100正在迁入，且client带了ASKING标识，</span></span><br><span class="line"></span><br><span class="line">            <span class="comment">// 这里返回一个有效的clusterNode实例，继续执行后续访问目标Key1的逻辑</span></span><br><span class="line"></span><br><span class="line">            <span class="keyword">return</span> myself;</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 如果没有设置ASKING标识，会走到下面这行代码，返回给客户端MOVED错误。</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (n != myself &amp;&amp; error_code) *error_code = CLUSTER_REDIR_MOVED;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+
+<p>很明显，<strong>如果客户端不提前发送一条 ASKING 命令来设置 ASKING 状态，那么无论 Key 1 是否已经迁移到了节点 B，节点 B 都将返回给客户端一个 MOVED 错误</strong>。</p>
+<p>这里简单区分一下 MOVED 和 ASKING 两个错误。</p>
+<ul>
+<li><p>MOVED 表示的是 slot 已经从一个节点转移到了另一个节点。在 Jedis、redis-cli 等客户端中，都会缓存一份 slot 与 Redis Cluster 节点的映射关系，当收到 MOVED 错误时，会修改该缓存，之后访问该 slot 的请求会直接发送到 MOVED 错误所指定的目标节点。</p>
+<p>以 redis-cli 为例，如果我们要让它实现自动处理 ASK 和 MOVED 的功能，需要在启动 redis-cli 客户端的时候，添加 -c 参数如下所示：</p>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">./redis-cli -h <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span> -p <span class="number">6381</span></span><br><span class="line"></span><br><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6381</span>&gt; GET key1</span><br><span class="line"></span><br><span class="line"># 自动处理MOVED和ASK命令</span><br><span class="line"></span><br><span class="line">-&gt; Redirected to slot [<span class="number">9189</span>] located at <span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6382</span> </span><br><span class="line"></span><br><span class="line"><span class="string">&quot;value&quot;</span></span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>ASKING 表示的是 slot 迁移过程中产生的中间态。在客户端收到 ASKING 错误时，不会修改缓存，所以只是影响 ASKING 响应的这条请求，不会后续影响其他的请求。如果客户端之后还需要访问该 slot，则仍然会按照缓存将请求发送到目前负责该 slot 的节点，可能还会触发 ASKING 错误。</p>
+<p>这从另一个角度说明，client 的 ASKING 状态是一个一次性标状态，当节点执行完一条非 ASKING 命令之后，ASKING 状态就会被清除，我们可以在 resetClient() 函数中看到下面这段清理 ASKING 状态的逻辑：</p>
+</li>
+</ul>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (!(c-&gt;flags &amp; CLIENT_MULTI) &amp;&amp; prevcmd != askingCommand)</span><br><span class="line"></span><br><span class="line">    c-&gt;flags &amp;= ~CLIENT_ASKING;</span><br></pre></td></tr></table></figure>
+
+<p>通过下图展示的调用栈可以看出，resetClient() 函数是在命令执行完成之后被立即调用的：</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/bf693d32c17349deb9a846aba0c029f3~tplv-k3u1fbpfcp-zoom-1.image"></p>
+<h3 id="迁移-Key"><a href="#迁移-Key" class="headerlink" title="迁移 Key"></a>迁移 Key</h3><p>分析完 <code>CLUSTER SETSLOT 100 IMPORTING A-name</code>、 <code>CLUSTER SETSLOT 100 MIGRATING B-name </code>两条命令的底层原理以及对数据访问带来的影响之后，我们再来分析 <code>CLUSTER GETKEYSINSLOT 100 &#123;count&#125;</code> 命令和 <code>MIGRATE B-host B-port &quot;&quot; 0 1000 KEYS key [key ...]</code> 迁移 Key 的实现逻辑。</p>
+<p>首先，当节点接收到 <code>CLUSTER GETKEYSINSLOT</code> 命令时，会先去 redisDb-&gt;slots_to_keys 中查找指定 slot 中 Key 的个数，然后从相应的 by_slot 列表中获取指定数量的 Key，最后将这些 Key 返回给客户端。<a target="_blank" rel="noopener" href="https://juejin.cn/book/7144917657089736743/section/7147530637849657384">《Cluster 篇：Redis Cluster 节点启动内幕》</a>在介绍 Redis Cluster 关键结构体的时候，已经详细介绍过 clusterSlotToKeyMapping 以及 slotToKeys 的结构，这里不再重复了。</p>
+<p>客户端拿到 CLUSTER GETKEYSINSLOT 返回的一批 Key 之后，就可以通过 MIGRATE 命令进行迁移了。MIGRATE 命令本身有非常多参数，当节点 A 接收到 MIGRATE 命令的时候，会先对其参数进行校验，例如，会检查命令中指定的 Key 是否还存在于当前 DB 中，至少存在一个 Key 才会执行后续的迁移操作。完成 MIGRATE 命令参数的校验之后，当前节点会根据命令参数中指定的 ip、port，与迁移的节点 B 建立连接，建连的关键逻辑就是调用 migrateGetSocket() 函数创建了一个 migrateCachedSocket 实例，migrateCachedSocket 底层封装了一个 conneciton 实例来抽象两个 Redis 节点之间的连接， 创建好的 migrateCachedSocket 实例会缓存到 redisServer.migrate_cached_sockets 字典中，Key 是目标节点的 ip 和 port，也就是示例中的节点 B 的地址，之后可以按照 ip 和 port 复用 migrateCachedSocket 实例，从而避免重复建连。</p>
+<p>建连完成之后，节点 A 就可以开始组装迁移 Key 的相关命令。</p>
+<ol>
+<li><p>首先创建一个基于 Buffer 的 rio 实例，后续需要发送到节点 B 的命令会先组装到该 Buffer 中。</p>
+</li>
+<li><p>向 Buffer 中写入 SELECT 命令，将迁移 Key 写入到节点 B 的指定 DB 中。</p>
+</li>
+<li><p>接下来循环待迁移的 Key，为每个 Key 生成一条 RESTORE-ASKING 命令（集群模式下使用 RESTORE-ASKING 命令，单机模式下使用 RESTORE 命令）。这里先会检查 Key 的过期时间，如果已经过期，直接跳过该 Key。然后才会真正向 Buffer 中写入的是 RESTORE-ASKING 命令，该命令的具体格式是 RESTORE-ASKING key ttl serialized-value，其中的序列化的 Value 值是通过 createDumpPayload() 函数按照 RDB 文件的格式，将 Value 值写入到 Buffer 中的。</p>
+</li>
+</ol>
+<p>迁移相关的命令全部写入到 Buffer 之后，节点 A 就可以调用 connSyncWrite() 函数将 Buffer 中的命令发送到节点 B ，注意，这里使用的同步方式进行发送，超时时间是 MIGRATE 命令中指定的，默认是 1000 毫秒。</p>
+<p>在节点 B 收到 RESTORE-ASKING 命令之后，会反序列化 Key、Value 值以及过期时间，然后将 KV 数据写入到指定 DB 中，并设置相应过期时间。如果节点 B 有冲突的 Key，则根据 RESTORE-ASKING 命令的相关参数确定是覆盖原有 Key 还是报错。RESTORE-ASKING 命令相应的处理函数为 restoreCommand() 函数，感兴趣的小伙伴可以参考源码进行分析。</p>
+<p>回到节点 A 这边，在发送完 Buffer 中的命令之后，它就会调用 connSyncReadLine() 函数阻塞等待节点 B 对每条 RESTORE-ASKING 命令的响应，对于迁移成功的 Key，节点 A 会将该 Key 从自身的 DB 中删除；对于迁移失败的 Key，节点 A 会将节点 B 返回的错误信息透传给客户端。</p>
+<h3 id="更新-slot-归属"><a href="#更新-slot-归属" class="headerlink" title="更新 slot 归属"></a>更新 slot 归属</h3><p>完成 Key 迁移之后，我们就可以依次在节点 B 和节点 A 上执行 <code>CLUSTER SETSLOT 100 NODE B-name </code>命令，变更 slot 100 的归属权了。</p>
+<p>节点 B 接到 <code>CLUSTER SETSLOT 100 NODE B-name</code>命令的时候，会执行下面的 slot 迁移逻辑。</p>
+<ol>
+<li>修改自身维护的 slot 视图，将 slot 100 与节点 A 解绑，并将 slot 100 修改为节点 B 负责管理。</li>
+<li>将 slot 100 的 IMPORTING 状态清理掉，也就是将 clusterState-&gt;importing_slots_from[100] 设置为 NULL。</li>
+<li>因为有 slot 的变更，所以 currentEpoch 和 configEpoch 值都需要增加。这里会将 currentEpoch 的值增加 1，并将其作为自身的最新 configEpoch 值。</li>
+<li>然后向其他节点广播 PONG 消息，其他节点也就可以更新到最新的 currentEpoch 和 configEpoch 值，同时也会变更 slot 100 的归属关系。</li>
+</ol>
+<p>之后节点 B 收到访问 slot 100 的请求时，就可以直接进行响应了。</p>
+<p>在节点 A 接到 <code>CLUSTER SETSLOT 100 NODE B-name</code> 命令的时候，会执行下面的操作。</p>
+<ol>
+<li>如果节点 A 还没有收到来自 PONG 消息时，会发现当前 slot 100 是由节点 A 自己负责管理的，而命令指定的却是节点 B，此时就需要检查在节点 A 中是否还持有 slot 100 中的 Key，如果没有，才能正常执行下面的 slot 迁移操作。</li>
+<li>将 slot 100 的 MIGRATING 状态清除掉，也就是将 clusterState-&gt;migrating_slots_to[100] 设置为 NULL。</li>
+<li>修改节点 A 中维护的 slot 视图，将 slot 100 与节点 A 解绑，将 slot 100 修改为由节点 B 负责管理。</li>
+</ol>
+<p>节点 A 之后收到访问 slot 100 的请求时，就会立刻返回 MOVED 响应，让客户端去访问节点 B，这也是在节点 A 上执行 CLUSTER SETSLOT 命令的主要作用。</p>
+<h2 id="使用-Redis-Cluster-的注意事项"><a href="#使用-Redis-Cluster-的注意事项" class="headerlink" title="使用 Redis Cluster 的注意事项"></a>使用 Redis Cluster 的注意事项</h2><p><code>数据倾斜问题</code>可能是我们在使用 Redis Cluster 时遇到最头疼的问题了。在 Redis Cluster 环境搭建以及 Key 设计的过程中，我们应该尽可能地保证键值对数量以及 Key 的访问量，均匀地散落在不同的 slot 中，同时尽可能保证 slot 均匀地散落在 Redis Cluster 的多个 Master 上，这样就可以避免出现数据量或是访问量的倾斜。</p>
+<p>出现数据量倾斜的问题可能是<strong>出现了某些大 Key</strong>，例如，我们的业务中出现了一部分特别大的 Hash 表，而且这些 Hash 表对应的 Key 都落到了一个 slot 中，这就会导致某个 Redis Cluster 节点内存使用率很高，其他节点的内存使用率很低。而且对大 Key 访问一般耗时会比正常 Key 要长，这也会造成 Redis Cluster 中的某些节点耗时长，影响整个 Redis Cluster 的性能表现。</p>
+<p>我们可以通过 redis-cli 命令行工具的 –bigkeys 参数来查询 Redis 中的大 Key，但是要根本解决大 Key 的问题，还是需要在进行 Key 设计的时候对可能的数据模型和数据量进行评估，对可能遇到的大 Key 进行拆分。</p>
+<p>另一个导致数据量倾斜的问题就是 <strong>Key 或是 HashTag 的设计不当造成的</strong>，这里我们先来展开介绍一下计算一个 Key 所属 slot 的 keyHashSlot() 函数，其中使用的核心算法是 crc16 算法，默认整个 Key 都会参与到 slot 的计算中，如下图所示第一组 Key 值所示，它们会散落在不同的 slot 中。</p>
+<p><img src="https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/456d8a60a5264bf7b4c6ff8ae5ff2f51~tplv-k3u1fbpfcp-watermark.image" alt="image.png"></p>
+<p>但是如果 Key 中有被大括号包裹起来的部分，如上所示的第二组的 Key 值所示，则只有大括号之内的部分会参与 slot 的计算，这就是所谓的 HashTag，上图第二组 Key 会落到同一个 slot 中。</p>
+<p>大量 Key 中的 HashTag 计算出相同的 slot 值，也会导致数据倾斜。一个比较好的方式就是在上线之前预估 Key 分布，然后模拟计算一下 slot 的分布情况。</p>
+<p>如果已经出现 slot 数据不均匀的情况，例如，出现了多个非常大 slot ，我们可以手动调整 slot 的分布，将这几个大 slot 归属到不同的 Redis Cluster 节点上，避免大 slot 集中到一起，压垮单个节点。当然，这仅仅是一种补救措施，我们还是应该尽可能让 Key 分布到 slot 中，让 slot 均匀分布到各个节点上。</p>
+<p>再来看<code>访问量倾斜</code>的问题，其实就是热点 Key 的问题，本质上也是 Key 设计的问题，最根本的解决方案就是<strong>重新设计一套合理的 Key</strong>。</p>
+<p>当然，我们还有一些改动较小的方案，例如，默认情况下 Redis Cluster 的 Slave 节点只作为冷备，不处理读请求，在一些读请求量倾斜或是读压力较大的场景中，我们可以开启读写分离的功能，具体方式是：客户端连接到 Slave 节点之后先发送一条 READONLY 命令，该命令会在对应的 client-&gt;flags 中添加一个 READONLY 标记，在 Slave 节点该 client 后续收到命令时，就不会再返回 MOVED 命令让客户端去请求 Master 节点了。前面介绍的 getNodeByQuery() 函数中会检查 READONLY 标记，相关代码片段如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">clusterNode *<span class="title function_">getNodeByQuery</span><span class="params">(...)</span> &#123;</span><br><span class="line"></span><br><span class="line">    ...<span class="comment">//省略前面逻辑，其中会查找读取目标Key所在的slot，以及目标slot由哪个Master节点负责</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> is_write_command = ...; <span class="comment">// 判断当前请求是否是写操作</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (((c-&gt;flags &amp; CLIENT_READONLY) || is_pubsubshard) &amp;&amp; <span class="comment">// client包含READONLY标识，is_pubsubshard后面会单独说</span></span><br><span class="line"></span><br><span class="line">        !is_write_command &amp;&amp; <span class="comment">// 不是写命令</span></span><br><span class="line"></span><br><span class="line">        nodeIsSlave(myself) &amp;&amp; <span class="comment">// 当前节点是一个Slave节点</span></span><br><span class="line"></span><br><span class="line">        myself-&gt;slaveof == n)  <span class="comment">// 当前Slave节点的Master节点负责管理读取的slot</span></span><br><span class="line"></span><br><span class="line">    &#123;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> myself; <span class="comment">// 满足上述全部条件，才能读取当前Slave节点的数据</span></span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 否则，返回MOVED错误，让客户端去请求相应的节点</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (n != myself &amp;&amp; error_code) *error_code = CLUSTER_REDIR_MOVED;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> n;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>很明显，如果发生了目标 slot 已经迁走或是目标 slot 不归该主从复制组管理，Slave 节点依旧会给客户端返回一个 MOVED 错误。</p>
+<p>另外，Redis Cluster 对 Key 批量操作以及事务等都有一定限制，例如，MSET、MGET 等命令操作的多个 Key 必须要归属于同一个 slot 值的。如下面这个示例，key1 和 key2 归属于不同的 slot ，就会返回异常：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">127.0</span><span class="number">.0</span><span class="number">.1</span>:<span class="number">6379</span>&gt; MSET key1 v1 key2 <span class="title function_">v2</span></span><br><span class="line"></span><br><span class="line"><span class="params">(error)</span> CROSSSLOT Keys in request don&#x27;t hash to the same slot</span><br></pre></td></tr></table></figure>
+
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>本节重点介绍了 Redis Cluster 中，Slave 节点漂移和 slot 迁移这两个话题。<code>Slave 节点漂移</code>主要是为防止 Redis Cluster 出现单点 Master 节点，<code>slot 迁移</code>主要是为了均衡数据在 Redis Cluster 各个节点的分布。最后，我们还分享了几个 Redis Cluster 实战中的常见问题以及解决思路。</p>
+<p>Redis Cluster 的核心内容，到这里就全部介绍完了。在下一模块中，我们将深入讲解<code>如何利用 Redis 支持生产者消费者</code>的需求场景。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC60%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9A%E8%8A%82%E7%82%B9%E8%BF%81%E7%A7%BB%E4%B8%8E%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/">https://hutbzc.github.io/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC60%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9A%E8%8A%82%E7%82%B9%E8%BF%81%E7%A7%BB%E4%B8%8E%E6%95%B0%E6%8D%AE%E8%BF%81%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC59%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E4%B8%AD%E7%9A%84failover%E5%8E%9F%E7%90%86/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC55%E7%AB%A0%E2%80%94Sentinel%E7%AF%87%EF%BC%9ASentinel%E6%95%85%E9%9A%9C%E8%BD%AC%E7%A7%BB%E5%AE%9E%E7%8E%B0%E8%A7%A3%E6%9E%90/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">103</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Slave-%E8%8A%82%E7%82%B9%E6%BC%82%E7%A7%BB"><span class="toc-number">1.</span> <span class="toc-text">Slave 节点漂移</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#slot-%E8%BF%81%E7%A7%BB"><span class="toc-number">2.</span> <span class="toc-text">slot 迁移</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#IMPORTING%E3%80%81MIGRATING-%E7%8A%B6%E6%80%81"><span class="toc-number">2.1.</span> <span class="toc-text">IMPORTING、MIGRATING 状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%BF%81%E7%A7%BB-Key"><span class="toc-number">2.2.</span> <span class="toc-text">迁移 Key</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0-slot-%E5%BD%92%E5%B1%9E"><span class="toc-number">2.3.</span> <span class="toc-text">更新 slot 归属</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8-Redis-Cluster-%E7%9A%84%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">3.</span> <span class="toc-text">使用 Redis Cluster 的注意事项</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">4.</span> <span class="toc-text">总结</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.712Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC57%E7%AB%A0%E2%80%94Cluster%E7%AF%87%EF%BC%9ARedisCluster%E8%8A%82%E7%82%B9%E6%8F%A1%E6%89%8B%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:21:15.711Z" title="发表于 2026-02-05 23:21:15">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
