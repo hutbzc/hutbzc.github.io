@@ -1,0 +1,202 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="undo 日志标签： MySQL 是怎样运行的  事务回滚的需求我们说过事务需要保证原子性，也就是事务中的操作要么全部完成，要么什么也不做。但是偏偏有些时候做到一半的时候会出一些情况，比如：  情况一：事务执行过程中可能遇到各种错误，比如服务器本身的错误，操作系统错误，甚至是突然断电导致的错误。  情况二：程序员可以在事务执行过程中手动输入ROLLBACK语句结束当前的事务的执行。   这两种情况">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/22%E5%90%8E%E6%82%94%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%20%E2%80%94%E2%80%94%20undo%20%E6%97%A5%E5%BF%97/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="undo 日志标签： MySQL 是怎样运行的  事务回滚的需求我们说过事务需要保证原子性，也就是事务中的操作要么全部完成，要么什么也不做。但是偏偏有些时候做到一半的时候会出一些情况，比如：  情况一：事务执行过程中可能遇到各种错误，比如服务器本身的错误，操作系统错误，甚至是突然断电导致的错误。  情况二：程序员可以在事务执行过程中手动输入ROLLBACK语句结束当前的事务的执行。   这两种情况">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:06.457Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:06.457Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/22%E5%90%8E%E6%82%94%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%20%E2%80%94%E2%80%94%20undo%20%E6%97%A5%E5%BF%97/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:06'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:06.457Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:06.457Z" title="更新于 2026-02-05 23:28:06">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="undo-日志"><a href="#undo-日志" class="headerlink" title="undo 日志"></a>undo 日志</h1><p>标签： MySQL 是怎样运行的</p>
+<hr>
+<h2 id="事务回滚的需求"><a href="#事务回滚的需求" class="headerlink" title="事务回滚的需求"></a>事务回滚的需求</h2><p>我们说过<code>事务</code>需要保证<code>原子性</code>，也就是事务中的操作要么全部完成，要么什么也不做。但是偏偏有些时候做到一半的时候会出一些情况，比如：</p>
+<ul>
+<li><p>情况一：事务执行过程中可能遇到各种错误，比如服务器本身的错误，操作系统错误，甚至是突然断电导致的错误。</p>
+</li>
+<li><p>情况二：程序员可以在事务执行过程中手动输入<code>ROLLBACK</code>语句结束当前的事务的执行。</p>
+</li>
+</ul>
+<p>这两种情况都会导致事务执行到一半就结束，但是事务执行过程中可能已经修改了很多东西，为了保证事务的原子性，我们需要把东西改回原先的样子，这个过程就称之为<code>回滚</code>（英文名：<code>rollback</code>），这样就可以造成一个假象：<span style="color:red">这个事务看起来什么都没做</span>，所以符合<code>原子性</code>要求。</p>
+<p>小时候我非常痴迷于象棋，总是想找厉害的大人下棋，赢棋是不可能赢棋的，这辈子都不可能赢棋的，又不想认输，只能偷偷的悔棋才能勉强玩的下去。<code>悔棋</code>就是一种非常典型的<code>回滚</code>操作，比如棋子往前走两步，<code>悔棋</code>对应的操作就是向后走两步；比如棋子往左走一步，<code>悔棋</code>对应的操作就是向右走一步。数据库中的回滚跟<code>悔棋</code>差不多，你插入了一条记录，<code>回滚</code>操作对应的就是把这条记录删除掉；你更新了一条记录，<code>回滚</code>操作对应的就是把该记录的更新为旧值；你删除了一条记录，<code>回滚</code>操作对应的自然就是把该记录再插进去。说的貌似很简单的样子[手动偷笑😏]</p>
+<h2 id="具体介绍每一种类型的修改对应的undo日志最小信息。"><a href="#具体介绍每一种类型的修改对应的undo日志最小信息。" class="headerlink" title="具体介绍每一种类型的修改对应的undo日志最小信息。"></a>具体介绍每一种类型的修改对应的undo日志最小信息。</h2><h2 id="介绍undo记录存储的位置以及具体方式"><a href="#介绍undo记录存储的位置以及具体方式" class="headerlink" title="介绍undo记录存储的位置以及具体方式"></a>介绍undo记录存储的位置以及具体方式</h2><h3 id="undo表空间"><a href="#undo表空间" class="headerlink" title="undo表空间"></a>undo表空间</h3><p>innodb_undo_tablespaces</p>
+<p>innodb_undo_directory</p>
+<p>innodb_max_undo_log_size</p>
+<p>innodb_undo_log_truncate</p>
+<p>innodb_undo_logs</p>
+<p>优惠码不好复制，给您单发一下，期盼能有回复🙏🙏</p>
+<h2 id="undo日志的真实格式"><a href="#undo日志的真实格式" class="headerlink" title="undo日志的真实格式"></a>undo日志的真实格式</h2></article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/22%E5%90%8E%E6%82%94%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%20%E2%80%94%E2%80%94%20undo%20%E6%97%A5%E5%BF%97/">https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/22%E5%90%8E%E6%82%94%E4%BA%86%E6%80%8E%E4%B9%88%E5%8A%9E%20%E2%80%94%E2%80%94%20undo%20%E6%97%A5%E5%BF%97/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/21%E8%AF%B4%E8%BF%87%E7%9A%84%E8%AF%9D%E5%B0%B1%E4%B8%80%E5%AE%9A%E8%A6%81%E5%8A%9E%E5%88%B0%20%E2%80%94%E2%80%94%20redo%20%E6%97%A5%E5%BF%97%EF%BC%88%E4%B8%8B%EF%BC%89/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/23%E5%B7%A5%E4%BD%9C%E9%9D%A2%E8%AF%95%E8%80%81%E5%A4%A7%E9%9A%BE%20%E2%80%94%E2%80%94%20%E9%94%81/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#undo-%E6%97%A5%E5%BF%97"><span class="toc-number">1.</span> <span class="toc-text">undo 日志</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8B%E5%8A%A1%E5%9B%9E%E6%BB%9A%E7%9A%84%E9%9C%80%E6%B1%82"><span class="toc-number">1.1.</span> <span class="toc-text">事务回滚的需求</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B7%E4%BD%93%E4%BB%8B%E7%BB%8D%E6%AF%8F%E4%B8%80%E7%A7%8D%E7%B1%BB%E5%9E%8B%E7%9A%84%E4%BF%AE%E6%94%B9%E5%AF%B9%E5%BA%94%E7%9A%84undo%E6%97%A5%E5%BF%97%E6%9C%80%E5%B0%8F%E4%BF%A1%E6%81%AF%E3%80%82"><span class="toc-number">1.2.</span> <span class="toc-text">具体介绍每一种类型的修改对应的undo日志最小信息。</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BB%8B%E7%BB%8Dundo%E8%AE%B0%E5%BD%95%E5%AD%98%E5%82%A8%E7%9A%84%E4%BD%8D%E7%BD%AE%E4%BB%A5%E5%8F%8A%E5%85%B7%E4%BD%93%E6%96%B9%E5%BC%8F"><span class="toc-number">1.3.</span> <span class="toc-text">介绍undo记录存储的位置以及具体方式</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#undo%E8%A1%A8%E7%A9%BA%E9%97%B4"><span class="toc-number">1.3.1.</span> <span class="toc-text">undo表空间</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#undo%E6%97%A5%E5%BF%97%E7%9A%84%E7%9C%9F%E5%AE%9E%E6%A0%BC%E5%BC%8F"><span class="toc-number">1.4.</span> <span class="toc-text">undo日志的真实格式</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC54%E7%AB%A0%E2%80%94Sentinel%E7%AF%87%EF%BC%9ASentinel%E7%9B%91%E6%8E%A7%E5%8E%9F%E7%90%86/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.467Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

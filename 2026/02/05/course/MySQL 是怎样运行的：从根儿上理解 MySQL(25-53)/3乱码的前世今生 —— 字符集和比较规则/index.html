@@ -1,0 +1,614 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="字符集和比较规则标签： MySQL 是怎样运行的  字符集和比较规则简介字符集简介我们知道在计算机中只能存储二进制数据，那该怎么存储字符串呢？当然是建立字符与二进制数据的映射关系了，建立这个关系最起码要搞清楚两件事儿：  你要把哪些字符映射成二进制数据？  也就是界定清楚字符范围。  怎么映射？  将一个字符映射成一个二进制数据的过程也叫做编码，将一个二进制数据映射到一个字符的过程叫做解码。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/3%E4%B9%B1%E7%A0%81%E7%9A%84%E5%89%8D%E4%B8%96%E4%BB%8A%E7%94%9F%20%E2%80%94%E2%80%94%20%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="字符集和比较规则标签： MySQL 是怎样运行的  字符集和比较规则简介字符集简介我们知道在计算机中只能存储二进制数据，那该怎么存储字符串呢？当然是建立字符与二进制数据的映射关系了，建立这个关系最起码要搞清楚两件事儿：  你要把哪些字符映射成二进制数据？  也就是界定清楚字符范围。  怎么映射？  将一个字符映射成一个二进制数据的过程也叫做编码，将一个二进制数据映射到一个字符的过程叫做解码。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:06.458Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:06.458Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/3%E4%B9%B1%E7%A0%81%E7%9A%84%E5%89%8D%E4%B8%96%E4%BB%8A%E7%94%9F%20%E2%80%94%E2%80%94%20%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:06'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:06.458Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:06.458Z" title="更新于 2026-02-05 23:28:06">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="字符集和比较规则"><a href="#字符集和比较规则" class="headerlink" title="字符集和比较规则"></a>字符集和比较规则</h1><p>标签： MySQL 是怎样运行的</p>
+<hr>
+<h2 id="字符集和比较规则简介"><a href="#字符集和比较规则简介" class="headerlink" title="字符集和比较规则简介"></a>字符集和比较规则简介</h2><h3 id="字符集简介"><a href="#字符集简介" class="headerlink" title="字符集简介"></a>字符集简介</h3><p>我们知道在计算机中只能存储二进制数据，那该怎么存储字符串呢？当然是建立字符与二进制数据的映射关系了，建立这个关系最起码要搞清楚两件事儿：</p>
+<ol>
+<li><p>你要把哪些字符映射成二进制数据？</p>
+<p> 也就是界定清楚字符范围。</p>
+</li>
+<li><p>怎么映射？</p>
+<p> 将一个字符映射成一个二进制数据的过程也叫做<code>编码</code>，将一个二进制数据映射到一个字符的过程叫做<code>解码</code>。</p>
+</li>
+</ol>
+<p>人们抽象出一个<code>字符集</code>的概念来描述某个字符范围的编码规则。比方说我们来自定义一个名称为<code>xiaohaizi</code>的字符集，它包含的字符范围和编码规则如下：</p>
+<ul>
+<li><p>包含字符<code>&#39;a&#39;</code>、<code>&#39;b&#39;</code>、<code>&#39;A&#39;</code>、<code>&#39;B&#39;</code>。</p>
+</li>
+<li><p>编码规则如下：</p>
+<p>  采用1个字节编码一个字符的形式，字符和字节的映射关系如下：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#x27;a&#x27; -&gt; 00000001 (十六进制：0x01)</span><br><span class="line">&#x27;b&#x27; -&gt; 00000010 (十六进制：0x02)</span><br><span class="line">&#x27;A&#x27; -&gt; 00000011 (十六进制：0x03)</span><br><span class="line">&#x27;B&#x27; -&gt; 00000100 (十六进制：0x04)</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>有了<code>xiaohaizi</code>字符集，我们就可以用二进制形式表示一些字符串了，下边是一些字符串用<code>xiaohaizi</code>字符集编码后的二进制表示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#x27;bA&#x27; -&gt; 0000001000000011  (十六进制：0x0203)</span><br><span class="line">&#x27;baB&#x27; -&gt; 000000100000000100000100  (十六进制：0x020104)</span><br><span class="line">&#x27;cd&#x27; -&gt; 无法表示，字符集xiaohaizi不包含字符&#x27;c&#x27;和&#x27;d&#x27;</span><br></pre></td></tr></table></figure>
+
+<h3 id="比较规则简介"><a href="#比较规则简介" class="headerlink" title="比较规则简介"></a>比较规则简介</h3><p>在我们确定了<code>xiaohaizi</code>字符集表示字符的范围以及编码规则后，怎么比较两个字符的大小呢？最容易想到的就是直接比较这两个字符对应的二进制编码的大小，比方说字符<code>&#39;a&#39;</code>的编码为<code>0x01</code>，字符<code>&#39;b&#39;</code>的编码为<code>0x02</code>，所以<code>&#39;a&#39;</code>小于<code>&#39;b&#39;</code>，这种简单的比较规则也可以被称为二进制比较规则，英文名为<code>binary collation</code>。</p>
+<p>二进制比较规则是简单，但有时候并不符合现实需求，比如在很多场合对于英文字符我们都是不区分大小写的，也就是说<code>&#39;a&#39;</code>和<code>&#39;A&#39;</code>是相等的，在这种场合下就不能简单粗暴的使用二进制比较规则了，这时候我们可以这样指定比较规则：</p>
+<ol>
+<li>将两个大小写不同的字符全都转为大写或者小写。</li>
+<li>再比较这两个字符对应的二进制数据。</li>
+</ol>
+<p>这是一种稍微复杂一点点的比较规则，但是实际生活中的字符不止英文字符一种，比如我们的汉字有几万几十万之多，对于某一种字符集来说，比较两个字符大小的规则可以制定出很多种，也就是说<span style="color:red">同一种字符集可以有多种比较规则</span>，我们稍后就要介绍各种现实生活中用的字符集以及它们的一些比较规则。</p>
+<h3 id="一些重要的字符集"><a href="#一些重要的字符集" class="headerlink" title="一些重要的字符集"></a>一些重要的字符集</h3><p>不幸的是，这个世界太大了，不同的人制定出了好多种<code>字符集</code>，它们表示的字符范围和用到的编码规则可能都不一样。我们看一下一些常用字符集的情况：</p>
+<ul>
+<li><p><code>ASCII</code>字符集</p>
+<p>  共收录128个字符，包括空格、标点符号、数字、大小写字母和一些不可见字符。由于总共才128个字符，所以可以使用1个字节来进行编码，我们看一些字符的编码方式：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x27;L&#x27; -&gt;  01001100（十六进制：0x4C，十进制：76）</span><br><span class="line">&#x27;M&#x27; -&gt;  01001101（十六进制：0x4D，十进制：77）</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><code>ISO 8859-1</code>字符集</p>
+<p>  共收录256个字符，是在<code>ASCII</code>字符集的基础上又扩充了128个西欧常用字符(包括德法两国的字母)，也可以使用1个字节来进行编码。这个字符集也有一个别名<code>latin1</code>。</p>
+</li>
+<li><p><code>GB2312</code>字符集</p>
+<p>  收录了汉字以及拉丁字母、希腊字母、日文平假名及片假名字母、俄语西里尔字母。其中收录汉字6763个，其他文字符号682个。同时这种字符集又兼容<code>ASCII</code>字符集，所以在编码方式上显得有些奇怪：</p>
+<ul>
+<li>如果该字符在<code>ASCII</code>字符集中，则采用1字节编码。</li>
+<li>否则采用2字节编码。</li>
+</ul>
+<p>  这种表示一个字符需要的字节数可能不同的编码方式称为<code>变长编码方式</code>。比方说字符串<code>&#39;爱u&#39;</code>，其中<code>&#39;爱&#39;</code>需要用2个字节进行编码，编码后的十六进制表示为<code>0xCED2</code>，<code>&#39;u&#39;</code>需要用1个字节进行编码，编码后的十六进制表示为<code>0x75</code>，所以拼合起来就是<code>0xCED275</code>。</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">小贴士：</span><br><span class="line"></span><br><span class="line">我们怎么区分某个字节代表一个单独的字符还是代表某个字符的一部分呢？别忘了 ASCII字符集只收录128个字符，使用0～127就可以表示全部字符，所以如果某个字节是在0～127之内的，就意味着一个字节代表一个单独的字符，否则就是两个字节代表一个单独的字符。</span><br></pre></td></tr></table></figure></li>
+<li><p><code>GBK</code>字符集</p>
+<p>  <code>GBK</code>字符集只是在收录字符范围上对<code>GB2312</code>字符集作了扩充，编码方式上兼容<code>GB2312</code>。</p>
+</li>
+<li><p><code>utf8</code>字符集</p>
+<p>  收录地球上能想到的所有字符，而且还在不断扩充。这种字符集兼容<code>ASCII</code>字符集，采用变长编码方式，编码一个字符需要使用1～4个字节，比方说这样：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#x27;L&#x27; -&gt;  01001100（十六进制：0x4C）</span><br><span class="line">&#x27;啊&#x27; -&gt;  111001011001010110001010（十六进制：0xE5958A）</span><br></pre></td></tr></table></figure>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">小贴士：</span><br><span class="line"></span><br><span class="line">其实准确的说，utf8只是Unicode字符集的一种编码方案，Unicode字符集可以采用utf8、utf16、utf32这几种编码方案，utf8使用1～4个字节编码一个字符，utf16使用2个或4个字节编码一个字符，utf32使用4个字节编码一个字符。更详细的Unicode和其编码方案的知识不是本书的重点，大家上网查查哈～</span><br><span class="line"></span><br><span class="line">MySQL中并不区分字符集和编码方案的概念，所以后边唠叨的时候把utf8、utf16、utf32都当作一种字符集对待。</span><br></pre></td></tr></table></figure></li>
+</ul>
+<p>对于同一个字符，不同字符集也可能有不同的编码方式。比如对于汉字<code>&#39;我&#39;</code>来说，<code>ASCII</code>字符集中根本没有收录这个字符，<code>utf8</code>和<code>gb2312</code>字符集对汉字<code>我</code>的编码方式如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">utf8编码：111001101000100010010001 (3个字节，十六进制表示是：0xE68891)</span><br><span class="line">gb2312编码：1100111011010010 (2个字节，十六进制表示是：0xCED2)</span><br></pre></td></tr></table></figure>
+
+<h2 id="MySQL中支持的字符集和排序规则"><a href="#MySQL中支持的字符集和排序规则" class="headerlink" title="MySQL中支持的字符集和排序规则"></a>MySQL中支持的字符集和排序规则</h2><h3 id="MySQL中的utf8和utf8mb4"><a href="#MySQL中的utf8和utf8mb4" class="headerlink" title="MySQL中的utf8和utf8mb4"></a>MySQL中的utf8和utf8mb4</h3><p>我们上边说<code>utf8</code>字符集表示一个字符需要使用1～4个字节，但是我们常用的一些字符使用1～3个字节就可以表示了。而在<code>MySQL</code>中字符集表示一个字符所用最大字节长度在某些方面会影响系统的存储和性能，所以设计<code>MySQL</code>的大叔偷偷的定义了两个概念：</p>
+<ul>
+<li><p><code>utf8mb3</code>：阉割过的<code>utf8</code>字符集，只使用1～3个字节表示字符。</p>
+</li>
+<li><p><code>utf8mb4</code>：正宗的<code>utf8</code>字符集，使用1～4个字节表示字符。</p>
+</li>
+</ul>
+<p>有一点需要大家十分的注意，在<code>MySQL</code>中<code>utf8</code>是<code>utf8mb3</code>的别名，所以之后在<code>MySQL</code>中提到<code>utf8</code>就意味着使用1~3个字节来表示一个字符，如果大家有使用4字节编码一个字符的情况，比如存储一些emoji表情啥的，那请使用<code>utf8mb4</code>。</p>
+<h3 id="字符集的查看"><a href="#字符集的查看" class="headerlink" title="字符集的查看"></a>字符集的查看</h3><p><code>MySQL</code>支持好多好多种字符集，查看当前<code>MySQL</code>中支持的字符集可以用下边这个语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SHOW (CHARACTER SET|CHARSET) [LIKE 匹配的模式];</span><br></pre></td></tr></table></figure>
+<p>其中<code>CHARACTER SET</code>和<code>CHARSET</code>是同义词，用任意一个都可以。我们查询一下（支持的字符集太多了，我们省略了一些）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW CHARSET;</span><br><span class="line">+----------+---------------------------------+---------------------+--------+</span><br><span class="line">| Charset  | Description                     | Default collation   | Maxlen |</span><br><span class="line">+----------+---------------------------------+---------------------+--------+</span><br><span class="line">| big5     | Big5 Traditional Chinese        | big5_chinese_ci     |      2 |</span><br><span class="line">...</span><br><span class="line">| latin1   | cp1252 West European            | latin1_swedish_ci   |      1 |</span><br><span class="line">| latin2   | ISO 8859-2 Central European     | latin2_general_ci   |      1 |</span><br><span class="line">...</span><br><span class="line">| ascii    | US ASCII                        | ascii_general_ci    |      1 |</span><br><span class="line">...</span><br><span class="line">| gb2312   | GB2312 Simplified Chinese       | gb2312_chinese_ci   |      2 |</span><br><span class="line">...</span><br><span class="line">| gbk      | GBK Simplified Chinese          | gbk_chinese_ci      |      2 |</span><br><span class="line">| latin5   | ISO 8859-9 Turkish              | latin5_turkish_ci   |      1 |</span><br><span class="line">...</span><br><span class="line">| utf8     | UTF-8 Unicode                   | utf8_general_ci     |      3 |</span><br><span class="line">| ucs2     | UCS-2 Unicode                   | ucs2_general_ci     |      2 |</span><br><span class="line">...</span><br><span class="line">| latin7   | ISO 8859-13 Baltic              | latin7_general_ci   |      1 |</span><br><span class="line">| utf8mb4  | UTF-8 Unicode                   | utf8mb4_general_ci  |      4 |</span><br><span class="line">| utf16    | UTF-16 Unicode                  | utf16_general_ci    |      4 |</span><br><span class="line">| utf16le  | UTF-16LE Unicode                | utf16le_general_ci  |      4 |</span><br><span class="line">...</span><br><span class="line">| utf32    | UTF-32 Unicode                  | utf32_general_ci    |      4 |</span><br><span class="line">| binary   | Binary pseudo charset           | binary              |      1 |</span><br><span class="line">...</span><br><span class="line">| gb18030  | China National Standard GB18030 | gb18030_chinese_ci  |      4 |</span><br><span class="line">+----------+---------------------------------+---------------------+--------+</span><br><span class="line">41 rows in set (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>可以看到，我使用的这个<code>MySQL</code>版本一共支持<code>41</code>种字符集，其中的<code>Default collation</code>列表示这种字符集中一种默认的<code>比较规则</code>。大家注意返回结果中的最后一列<code>Maxlen</code>，它代表该种字符集表示一个字符最多需要几个字节。为了让大家的印象更深刻，我把几个常用到的字符集的<code>Maxlen</code>列摘抄下来，大家务必记住：</p>
+<table>
+<thead>
+<tr>
+<th align="center">字符集名称</th>
+<th align="center">Maxlen</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>ascii</code></td>
+<td align="center"><code>1</code></td>
+</tr>
+<tr>
+<td align="center"><code>latin1</code></td>
+<td align="center"><code>1</code></td>
+</tr>
+<tr>
+<td align="center"><code>gb2312</code></td>
+<td align="center"><code>2</code></td>
+</tr>
+<tr>
+<td align="center"><code>gbk</code></td>
+<td align="center"><code>2</code></td>
+</tr>
+<tr>
+<td align="center"><code>utf8</code></td>
+<td align="center"><code>3</code></td>
+</tr>
+<tr>
+<td align="center"><code>utf8mb4</code></td>
+<td align="center"><code>4</code></td>
+</tr>
+</tbody></table>
+<h3 id="比较规则的查看"><a href="#比较规则的查看" class="headerlink" title="比较规则的查看"></a>比较规则的查看</h3><p>查看<code>MySQL</code>中支持的比较规则的命令如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SHOW COLLATION [LIKE 匹配的模式];</span><br></pre></td></tr></table></figure>
+<p>我们前边说过一种字符集可能对应着若干种比较规则，<code>MySQL</code>支持的字符集就已经非常多了，所以支持的比较规则更多，我们先只查看一下<code>utf8</code>字符集下的比较规则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW COLLATION LIKE &#x27;utf8\_%&#x27;;</span><br><span class="line">+--------------------------+---------+-----+---------+----------+---------+</span><br><span class="line">| Collation                | Charset | Id  | Default | Compiled | Sortlen |</span><br><span class="line">+--------------------------+---------+-----+---------+----------+---------+</span><br><span class="line">| utf8_general_ci          | utf8    |  33 | Yes     | Yes      |       1 |</span><br><span class="line">| utf8_bin                 | utf8    |  83 |         | Yes      |       1 |</span><br><span class="line">| utf8_unicode_ci          | utf8    | 192 |         | Yes      |       8 |</span><br><span class="line">| utf8_icelandic_ci        | utf8    | 193 |         | Yes      |       8 |</span><br><span class="line">| utf8_latvian_ci          | utf8    | 194 |         | Yes      |       8 |</span><br><span class="line">| utf8_romanian_ci         | utf8    | 195 |         | Yes      |       8 |</span><br><span class="line">| utf8_slovenian_ci        | utf8    | 196 |         | Yes      |       8 |</span><br><span class="line">| utf8_polish_ci           | utf8    | 197 |         | Yes      |       8 |</span><br><span class="line">| utf8_estonian_ci         | utf8    | 198 |         | Yes      |       8 |</span><br><span class="line">| utf8_spanish_ci          | utf8    | 199 |         | Yes      |       8 |</span><br><span class="line">| utf8_swedish_ci          | utf8    | 200 |         | Yes      |       8 |</span><br><span class="line">| utf8_turkish_ci          | utf8    | 201 |         | Yes      |       8 |</span><br><span class="line">| utf8_czech_ci            | utf8    | 202 |         | Yes      |       8 |</span><br><span class="line">| utf8_danish_ci           | utf8    | 203 |         | Yes      |       8 |</span><br><span class="line">| utf8_lithuanian_ci       | utf8    | 204 |         | Yes      |       8 |</span><br><span class="line">| utf8_slovak_ci           | utf8    | 205 |         | Yes      |       8 |</span><br><span class="line">| utf8_spanish2_ci         | utf8    | 206 |         | Yes      |       8 |</span><br><span class="line">| utf8_roman_ci            | utf8    | 207 |         | Yes      |       8 |</span><br><span class="line">| utf8_persian_ci          | utf8    | 208 |         | Yes      |       8 |</span><br><span class="line">| utf8_esperanto_ci        | utf8    | 209 |         | Yes      |       8 |</span><br><span class="line">| utf8_hungarian_ci        | utf8    | 210 |         | Yes      |       8 |</span><br><span class="line">| utf8_sinhala_ci          | utf8    | 211 |         | Yes      |       8 |</span><br><span class="line">| utf8_german2_ci          | utf8    | 212 |         | Yes      |       8 |</span><br><span class="line">| utf8_croatian_ci         | utf8    | 213 |         | Yes      |       8 |</span><br><span class="line">| utf8_unicode_520_ci      | utf8    | 214 |         | Yes      |       8 |</span><br><span class="line">| utf8_vietnamese_ci       | utf8    | 215 |         | Yes      |       8 |</span><br><span class="line">| utf8_general_mysql500_ci | utf8    | 223 |         | Yes      |       1 |</span><br><span class="line">+--------------------------+---------+-----+---------+----------+---------+</span><br><span class="line">27 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>这些比较规则的命名还挺有规律的，具体规律如下：</p>
+<ul>
+<li><p>比较规则名称以与其关联的字符集的名称开头。如上图的查询结果的比较规则名称都是以<code>utf8</code>开头的。</p>
+</li>
+<li><p>后边紧跟着该比较规则主要作用于哪种语言，比如<code>utf8_polish_ci</code>表示以波兰语的规则比较，<code>utf8_spanish_ci</code>是以西班牙语的规则比较，<code>utf8_general_ci</code>是一种通用的比较规则。</p>
+</li>
+<li><p>名称后缀意味着该比较规则是否区分语言中的重音、大小写啥的，具体可以用的值如下：</p>
+<table>
+<thead>
+<tr>
+<th align="center">后缀</th>
+<th align="center">英文释义</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>_ai</code></td>
+<td align="center"><code>accent insensitive</code></td>
+<td align="center">不区分重音</td>
+</tr>
+<tr>
+<td align="center"><code>_as</code></td>
+<td align="center"><code>accent sensitive</code></td>
+<td align="center">区分重音</td>
+</tr>
+<tr>
+<td align="center"><code>_ci</code></td>
+<td align="center"><code>case insensitive</code></td>
+<td align="center">不区分大小写</td>
+</tr>
+<tr>
+<td align="center"><code>_cs</code></td>
+<td align="center"><code>case sensitive</code></td>
+<td align="center">区分大小写</td>
+</tr>
+<tr>
+<td align="center"><code>_bin</code></td>
+<td align="center"><code>binary</code></td>
+<td align="center">以二进制方式比较</td>
+</tr>
+</tbody></table>
+<p> 比如<code>utf8_general_ci</code>这个比较规则是以<code>ci</code>结尾的，说明不区分大小写。</p>
+</li>
+</ul>
+<p><span style="color:red">每种字符集对应若干种比较规则，每种字符集都有一种默认的比较规则</span>，<code>SHOW COLLATION</code>的返回结果中的<code>Default</code>列的值为<code>YES</code>的就是该字符集的默认比较规则，比方说<code>utf8</code>字符集默认的比较规则就是<code>utf8_general_ci</code>。</p>
+<h2 id="字符集和比较规则的应用"><a href="#字符集和比较规则的应用" class="headerlink" title="字符集和比较规则的应用"></a>字符集和比较规则的应用</h2><h3 id="各级别的字符集和比较规则"><a href="#各级别的字符集和比较规则" class="headerlink" title="各级别的字符集和比较规则"></a>各级别的字符集和比较规则</h3><p><code>MySQL</code>有4个级别的字符集和比较规则，分别是：</p>
+<ul>
+<li>服务器级别</li>
+<li>数据库级别</li>
+<li>表级别</li>
+<li>列级别</li>
+</ul>
+<p>我们接下来仔细看一下怎么设置和查看这几个级别的字符集和比较规则。</p>
+<h4 id="服务器级别"><a href="#服务器级别" class="headerlink" title="服务器级别"></a>服务器级别</h4><p><code>MySQL</code>提供了两个系统变量来表示服务器级别的字符集和比较规则：</p>
+<table>
+<thead>
+<tr>
+<th align="center">系统变量</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>character_set_server</code></td>
+<td align="center">服务器级别的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>collation_server</code></td>
+<td align="center">服务器级别的比较规则</td>
+</tr>
+</tbody></table>
+<p>我们看一下这两个系统变量的值：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_server&#x27;;</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| Variable_name        | Value |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| character_set_server | utf8  |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;collation_server&#x27;;</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">| Variable_name    | Value           |</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">| collation_server | utf8_general_ci |</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>可以看到在我的计算机中服务器级别默认的字符集是<code>utf8</code>，默认的比较规则是<code>utf8_general_ci</code>。</p>
+<p>我们可以在启动服务器程序时通过启动选项或者在服务器程序运行过程中使用<code>SET</code>语句修改这两个变量的值。比如我们可以在配置文件中这样写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">[server]</span><br><span class="line">character_set_server=gbk</span><br><span class="line">collation_server=gbk_chinese_ci</span><br></pre></td></tr></table></figure>
+<p>当服务器启动的时候读取这个配置文件后这两个系统变量的值便修改了。</p>
+<h4 id="数据库级别"><a href="#数据库级别" class="headerlink" title="数据库级别"></a>数据库级别</h4><p>我们在创建和修改数据库的时候可以指定该数据库的字符集和比较规则，具体语法如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE DATABASE 数据库名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [[DEFAULT] COLLATE 比较规则名称];</span><br><span class="line"></span><br><span class="line">ALTER DATABASE 数据库名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [[DEFAULT] COLLATE 比较规则名称];</span><br></pre></td></tr></table></figure>
+<p>其中的<code>DEFAULT</code>可以省略，并不影响语句的语义。比方说我们新创建一个名叫<code>charset_demo_db</code>的数据库，在创建的时候指定它使用的字符集为<code>gb2312</code>，比较规则为<code>gb2312_chinese_ci</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; CREATE DATABASE charset_demo_db</span><br><span class="line">    -&gt; CHARACTER SET gb2312</span><br><span class="line">    -&gt; COLLATE gb2312_chinese_ci;</span><br><span class="line">Query OK, 1 row affected (0.01 sec)</span><br></pre></td></tr></table></figure>
+<p>如果想查看当前数据库使用的字符集和比较规则，可以查看下面两个系统变量的值（前提是使用<code>USE</code>语句选择当前默认数据库，如果没有默认数据库，则变量与相应的服务器级系统变量具有相同的值）：</p>
+<table>
+<thead>
+<tr>
+<th align="center">系统变量</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>character_set_database</code></td>
+<td align="center">当前数据库的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>collation_database</code></td>
+<td align="center">当前数据库的比较规则</td>
+</tr>
+</tbody></table>
+<p>我们来查看一下刚刚创建的<code>charset_demo_db</code>数据库的字符集和比较规则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; USE charset_demo_db;</span><br><span class="line">Database changed</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_database&#x27;;</span><br><span class="line">+------------------------+--------+</span><br><span class="line">| Variable_name          | Value  |</span><br><span class="line">+------------------------+--------+</span><br><span class="line">| character_set_database | gb2312 |</span><br><span class="line">+------------------------+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;collation_database&#x27;;</span><br><span class="line">+--------------------+-------------------+</span><br><span class="line">| Variable_name      | Value             |</span><br><span class="line">+--------------------+-------------------+</span><br><span class="line">| collation_database | gb2312_chinese_ci |</span><br><span class="line">+--------------------+-------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<p>可以看到这个<code>charset_demo_db</code>数据库的字符集和比较规则就是我们在创建语句中指定的。需要注意的一点是：<span style="color:red"> <em><strong>character_set_database</strong></em> 和 <em><strong>collation_database</strong></em> 这两个系统变量是只读的，我们不能通过修改这两个变量的值而改变当前数据库的字符集和比较规则</span>。</p>
+<p>数据库的创建语句中也可以不指定字符集和比较规则，比如这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">CREATE DATABASE 数据库名;</span><br></pre></td></tr></table></figure>
+<p><span style="color:red">这样的话将使用服务器级别的字符集和比较规则作为数据库的字符集和比较规则</span>。</p>
+<h4 id="表级别"><a href="#表级别" class="headerlink" title="表级别"></a>表级别</h4><p>我们也可以在创建和修改表的时候指定表的字符集和比较规则，语法如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表名 (列的信息)</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [COLLATE 比较规则名称]]</span><br><span class="line"></span><br><span class="line">ALTER TABLE 表名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [COLLATE 比较规则名称]</span><br></pre></td></tr></table></figure>
+<p>比方说我们在刚刚创建的<code>charset_demo_db</code>数据库中创建一个名为<code>t</code>的表，并指定这个表的字符集和比较规则：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; CREATE TABLE t(</span><br><span class="line">    -&gt;     col VARCHAR(10)</span><br><span class="line">    -&gt; ) CHARACTER SET utf8 COLLATE utf8_general_ci;</span><br><span class="line">Query OK, 0 rows affected (0.03 sec)</span><br></pre></td></tr></table></figure>
+<p>如果创建和修改表的语句中没有指明字符集和比较规则，<span style="color:red">将使用该表所在数据库的字符集和比较规则作为该表的字符集和比较规则</span>。假设我们的创建表<code>t</code>的语句是这么写的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE t(</span><br><span class="line">    col VARCHAR(10)</span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+<p>因为表<code>t</code>的建表语句中并没有明确指定字符集和比较规则，则表<code>t</code>的字符集和比较规则将继承所在数据库<code>charset_demo_db</code>的字符集和比较规则，也就是<code>gbk</code>和<code>gb2312_chinese_ci</code>。</p>
+<h4 id="列级别"><a href="#列级别" class="headerlink" title="列级别"></a>列级别</h4><p>需要注意的是，对于存储字符串的列，<span style="color:red">同一个表中的不同的列也可以有不同的字符集和比较规则</span>。我们在创建和修改列定义的时候可以指定该列的字符集和比较规则，语法如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表名(</span><br><span class="line">    列名 字符串类型 [CHARACTER SET 字符集名称] [COLLATE 比较规则名称],</span><br><span class="line">    其他列...</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line">ALTER TABLE 表名 MODIFY 列名 字符串类型 [CHARACTER SET 字符集名称] [COLLATE 比较规则名称];</span><br></pre></td></tr></table></figure>
+<p>比如我们修改一下表<code>t</code>中列<code>col</code>的字符集和比较规则可以这么写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; ALTER TABLE t MODIFY col VARCHAR(10) CHARACTER SET gbk COLLATE gbk_chinese_ci;</span><br><span class="line">Query OK, 0 rows affected (0.04 sec)</span><br><span class="line">Records: 0  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<p>对于某个列来说，如果在创建和修改的语句中没有指明字符集和比较规则，<span style="color:red">将使用该列所在表的字符集和比较规则作为该列的字符集和比较规则</span>。比方说表<code>t</code>的字符集是<code>utf8</code>，比较规则是<code>utf8_general_ci</code>，修改列<code>col</code>的语句是这么写的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ALTER TABLE t MODIFY col VARCHAR(10);</span><br></pre></td></tr></table></figure>
+<p>那列<code>col</code>的字符集和编码将使用表<code>t</code>的字符集和比较规则，也就是<code>utf8</code>和<code>utf8_general_ci</code>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">小贴士：</span><br><span class="line"></span><br><span class="line">在转换列的字符集时需要注意，如果转换前列中存储的数据不能用转换后的字符集进行表示会发生错误。比方说原先列使用的字符集是utf8，列中存储了一些汉字，现在把列的字符集转换为ascii的话就会出错，因为ascii字符集并不能表示汉字字符。</span><br></pre></td></tr></table></figure>
+
+<h4 id="仅修改字符集或仅修改比较规则"><a href="#仅修改字符集或仅修改比较规则" class="headerlink" title="仅修改字符集或仅修改比较规则"></a>仅修改字符集或仅修改比较规则</h4><p>由于字符集和比较规则是互相有联系的，如果我们只修改了字符集，比较规则也会跟着变化，如果只修改了比较规则，字符集也会跟着变化，具体规则如下：</p>
+<ul>
+<li>只修改字符集，则比较规则将变为修改后的字符集默认的比较规则。</li>
+<li>只修改比较规则，则字符集将变为修改后的比较规则对应的字符集。</li>
+</ul>
+<p><span style="color:red">不论哪个级别的字符集和比较规则，这两条规则都适用</span>，我们以服务器级别的字符集和比较规则为例来看一下详细过程：</p>
+<ul>
+<li><p>只修改字符集，则比较规则将变为修改后的字符集默认的比较规则。</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SET character_set_server = gb2312;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_server&#x27;;</span><br><span class="line">+----------------------+--------+</span><br><span class="line">| Variable_name        | Value  |</span><br><span class="line">+----------------------+--------+</span><br><span class="line">| character_set_server | gb2312 |</span><br><span class="line">+----------------------+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;  SHOW VARIABLES LIKE &#x27;collation_server&#x27;;</span><br><span class="line">+------------------+-------------------+</span><br><span class="line">| Variable_name    | Value             |</span><br><span class="line">+------------------+-------------------+</span><br><span class="line">| collation_server | gb2312_chinese_ci |</span><br><span class="line">+------------------+-------------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>  我们只修改了<code>character_set_server</code>的值为<code>gb2312</code>，<code>collation_server</code>的值自动变为了<code>gb2312_chinese_ci</code>。</p>
+</li>
+<li><p>只修改比较规则，则字符集将变为修改后的比较规则对应的字符集。</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SET collation_server = utf8_general_ci;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_server&#x27;;</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| Variable_name        | Value |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| character_set_server | utf8  |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;collation_server&#x27;;</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">| Variable_name    | Value           |</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">| collation_server | utf8_general_ci |</span><br><span class="line">+------------------+-----------------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+
+<p>  我们只修改了<code>collation_server</code>的值为<code>utf8_general_ci</code>，<code>character_set_server</code>的值自动变为了<code>utf8</code>。</p>
+</li>
+</ul>
+<h4 id="各级别字符集和比较规则小结"><a href="#各级别字符集和比较规则小结" class="headerlink" title="各级别字符集和比较规则小结"></a>各级别字符集和比较规则小结</h4><p>我们介绍的这4个级别字符集和比较规则的联系如下：</p>
+<ul>
+<li>如果创建或修改列时没有显式的指定字符集和比较规则，则该列默认用表的字符集和比较规则</li>
+<li>如果创建或修改表时没有显式的指定字符集和比较规则，则该表默认用数据库的字符集和比较规则</li>
+<li>如果创建或修改数据库时没有显式的指定字符集和比较规则，则该数据库默认用服务器的字符集和比较规则</li>
+</ul>
+<p>知道了这些规则之后，对于给定的表，我们应该知道它的各个列的字符集和比较规则是什么，从而根据这个列的类型来确定存储数据时每个列的实际数据占用的存储空间大小了。比方说我们向表<code>t</code>中插入一条记录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; INSERT INTO t(col) VALUES(&#x27;我我&#x27;);</span><br><span class="line">Query OK, 1 row affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SELECT * FROM t;</span><br><span class="line">+--------+</span><br><span class="line">| s      |</span><br><span class="line">+--------+</span><br><span class="line">| 我我   |</span><br><span class="line">+--------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>首先列<code>col</code>使用的字符集是<code>gbk</code>，一个字符<code>&#39;我&#39;</code>在<code>gbk</code>中的编码为<code>0xCED2</code>，占用两个字节，两个字符的实际数据就占用4个字节。如果把该列的字符集修改为<code>utf8</code>的话，这两个字符就实际占用6个字节啦～</p>
+<h3 id="客户端和服务器通信中的字符集"><a href="#客户端和服务器通信中的字符集" class="headerlink" title="客户端和服务器通信中的字符集"></a>客户端和服务器通信中的字符集</h3><h4 id="编码和解码使用的字符集不一致的后果"><a href="#编码和解码使用的字符集不一致的后果" class="headerlink" title="编码和解码使用的字符集不一致的后果"></a>编码和解码使用的字符集不一致的后果</h4><p>说到底，字符串在计算机上的体现就是一个字节串，如果你使用不同字符集去解码这个字节串，最后得到的结果可能让你挠头。</p>
+<p>我们知道字符<code>&#39;我&#39;</code>在<code>utf8</code>字符集编码下的字节串长这样：<code>0xE68891</code>，如果一个程序把这个字节串发送到另一个程序里，另一个程序用不同的字符集去解码这个字节串，假设使用的是<code>gbk</code>字符集来解释这串字节，解码过程就是这样的：</p>
+<ol>
+<li><p>首先看第一个字节<code>0xE6</code>，它的值大于<code>0x7F</code>（十进制：127），说明是两字节编码，继续读一字节后是<code>0xE688</code>，然后从<code>gbk</code>编码表中查找字节为<code>0xE688</code>对应的字符，发现是字符<code>&#39;鎴&#39;</code></p>
+</li>
+<li><p>继续读一个字节<code>0x91</code>，它的值也大于<code>0x7F</code>，再往后读一个字节发现木有了，所以这是半个字符。</p>
+</li>
+<li><p>因为<code>0xE68891</code>被<code>gbk</code>字符集解释成一个字符<code>&#39;鎴&#39;</code>和半个字符。</p>
+</li>
+</ol>
+<p>假设用<code>iso-8859-1</code>，也就是<code>latin1</code>字符集去解释这串字节，解码过程如下：</p>
+<ol>
+<li><p>先读第一个字节<code>0xE6</code>，它对应的<code>latin1</code>字符为<code>æ</code>。</p>
+</li>
+<li><p>再读第二个字节<code>0x88</code>，它对应的<code>latin1</code>字符为<code>ˆ</code>。</p>
+</li>
+<li><p>再读第二个字节<code>0x91</code>，它对应的<code>latin1</code>字符为<code>‘</code>。</p>
+</li>
+<li><p>所以整串字节<code>0xE68891</code>被<code>latin1</code>字符集解释后的字符串就是<code>&#39;æˆ‘&#39;</code></p>
+</li>
+</ol>
+<p>可见，<span style="color:red">如果对于同一个字符串编码和解码使用的字符集不一样，会产生意想不到的结果</span>，作为人类的我们看上去就像是产生了乱码一样。</p>
+<h4 id="字符集转换的概念"><a href="#字符集转换的概念" class="headerlink" title="字符集转换的概念"></a>字符集转换的概念</h4><p>如果接收<code>0xE68891</code>这个字节串的程序按照<code>utf8</code>字符集进行解码，然后又把它按照<code>gbk</code>字符集进行编码，最后编码后的字节串就是<code>0xCED2</code>，我们把这个过程称为<code>字符集的转换</code>，也就是字符串<code>&#39;我&#39;</code>从<code>utf8</code>字符集转换为<code>gbk</code>字符集。</p>
+<h4 id="MySQL中字符集的转换"><a href="#MySQL中字符集的转换" class="headerlink" title="MySQL中字符集的转换"></a>MySQL中字符集的转换</h4><p>我们知道从客户端发往服务器的请求本质上就是一个字符串，服务器向客户端返回的结果本质上也是一个字符串，而字符串其实是使用某种字符集编码的二进制数据。这个字符串可不是使用一种字符集的编码方式一条道走到黑的，从发送请求到返回结果这个过程中伴随着多次字符集的转换，在这个过程中会用到3个系统变量，我们先把它们写出来看一下：</p>
+<table>
+<thead>
+<tr>
+<th align="center">系统变量</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>character_set_client</code></td>
+<td align="center">服务器解码请求时使用的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>character_set_connection</code></td>
+<td align="center">服务器运行过程中使用的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>character_set_results</code></td>
+<td align="center">服务器向客户端返回数据时使用的字符集</td>
+</tr>
+</tbody></table>
+<p>这几个系统变量在我的计算机上的默认值如下（不同操作系统的默认值可能不同）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_client&#x27;;</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| Variable_name        | Value |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| character_set_client | utf8  |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_connection&#x27;;</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">| Variable_name            | Value |</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">| character_set_connection | utf8  |</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">1 row in set (0.01 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_results&#x27;;</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">| Variable_name         | Value |</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">| character_set_results | utf8  |</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>大家可以看到这几个系统变量的值都是<code>utf8</code>，为了体现出字符集在请求处理过程中的变化，我们这里特意修改一个系统变量的值：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; set character_set_connection = gbk;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>所以现在系统变量<code>character_set_client</code>和<code>character_set_results</code>的值还是<code>utf8</code>，而<code>character_set_connection</code>的值为<code>gbk</code>。现在假设我们客户端发送的请求是下边这个字符串：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SELECT * FROM t WHERE s = &#x27;我&#x27;;</span><br></pre></td></tr></table></figure>
+
+<p>为了方便大家理解这个过程，我们只分析字符<code>&#39;我&#39;</code>在这个过程中字符集的转换。</p>
+<p>现在看一下在请求从发送到结果返回过程中字符集的变化：</p>
+<ol>
+<li><p>客户端发送请求所使用的字符集</p>
+<p> 一般情况下客户端所使用的字符集和当前操作系统一致，不同操作系统使用的字符集可能不一样，如下：</p>
+<ul>
+<li>类<code>Unix</code>系统使用的是<code>utf8</code></li>
+<li><code>Windows</code>使用的是<code>gbk</code></li>
+</ul>
+<p> 例如我是用的<code>macOS</code>操作系统时，客户端使用的就是是<code>utf8</code>字符集。所以字符<code>&#39;我&#39;</code>在发送给服务器的请求中的字节形式就是：<code>0xE68891</code>
+ </p>
+</li>
+<li><p>服务器接收到客户端发送来的请求其实是一串字节，它会认为这串字节采用的字符集是<code>chacharacter_set_client</code>，然后把这串字节转换为<code>character_set_connection</code>字符集编码的字节。</p>
+<p> 由于我的计算机上<code>chacharacter_set_client</code>的值是<code>utf8</code>，<code>character_set_connection</code>的值是<code>gbk</code>，所以字符串<code>&#39;我&#39;</code>将从<code>utf8</code>字符集转换为<code>gbk</code>字符集，所以最后得到字节其实是<code>0xCED2</code>。</p>
+</li>
+<li><p>因为表<code>t</code>的列<code>col</code>采用的是<code>gbk</code>字符集，与<code>character_set_connection</code>一致，所以直接到列中找字节值为<code>0xCED2</code>的记录，最后找到了一条。</p>
+</li>
+<li><p>服务器会将查找到的结果集包装成一个字符串，需要将这个字符串从<code>character_set_connection</code>字符集转换成<code>character_set_results</code>字符集，然后把转换后的字节串返回到客户端。</p>
+<p> 服务器生成的结果集中含有字符<code>&#39;我&#39;</code>，由于我的计算机上<code>character_set_connection</code>的值是<code>gbk</code>，所以结果集中的<code>&#39;我&#39;</code>对应的字节串是<code>0xCED2</code>，而我的计算机<code>character_set_results</code>的值是<code>utf8</code>，所以需要将<code>&#39;我&#39;</code>从<code>gbk</code>字符集转换到<code>utf8</code>字符集，也就是转换后的字节串是<code>0xE68891</code>。</p>
+</li>
+<li><p>由于客户端是用的字符集是<code>utf8</code>，所以可以顺利的将<code>0xE68891</code>解释成字符<code>我</code>，从而显示到我们的显示器上，所以我们人类也读懂了返回的结果。</p>
+</li>
+</ol>
+<p>如果你读上边的文字有点晕，可以参照这个图来仔细分析一下这几个步骤：</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/12/6/167815b6f78145f8?w=892&h=470&f=png&s=91878" alt="image_1c91mt04ll7suk01ej01fb067k9.png-89.7kB"></p>
+<p>从这个分析中我们可以得出这么几点需要注意的地方：</p>
+<ul>
+<li><p>服务器认为客户端发送过来的请求是用<code>character_set_client</code>编码的。</p>
+<p>  <span style="color:red">假设你的客户端采用的字符集和 <em><strong>character_set_client</strong></em> 不一样的话，这就会出现意想不到的情况</span>。比如我的客户端使用的是<code>utf8</code>字符集，如果把系统变量<code>character_set_client</code>的值设置为<code>gbk</code>的话，服务器将无法理解我们发送的请求，更别谈处理这个请求了。</p>
+</li>
+<li><p>服务器将把得到的结果集使用<code>character_set_results</code>编码后发送给客户端。</p>
+<p>  <span style="color:red">假设你的客户端采用的字符集和 <em><strong>character_set_results</strong></em> 不一样的话，这就会出现客户端无法解码结果集的情况</span>，结果就是在你的屏幕上出现乱码。比如我的客户端使用的是<code>utf8</code>字符集，如果把系统变量<code>character_set_results</code>的值设置为<code>gbk</code>的话，将产生乱码。</p>
+</li>
+<li><p><code>character_set_connection</code>只是服务器在处理请求时使用的字符集，它是什么其实没多重要，但是一定要注意，<span style="color:red">该字符集包含的字符范围一定涵盖请求以及结果集中的字符</span>，要不然会出现无法将请求中的字符编码成<code>character_set_connection</code>字符集或者无法编码结果集中的字符。</p>
+</li>
+</ul>
+<p>知道了在<code>MySQL</code>中从发送请求到返回结果过程里发生的各种字符集转换，但是为啥要转来转去的呢？不晕么？</p>
+<p>答：是的，很头晕，所以<span style="color:red">我们通常都把 <em><strong>character_set_client</strong></em> 、<em><strong>character_set_connection</strong></em>、<em><strong>character_set_results</strong></em> 这三个系统变量设置成和客户端使用的字符集一致的情况，这样减少了很多无谓的字符集转换</span>。为了方便我们设置，<code>MySQL</code>提供了一条非常简便的语句：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET NAMES 字符集名;</span><br></pre></td></tr></table></figure>
+<p>这一条语句产生的效果和我们执行这3条的效果是一样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SET character_set_client = 字符集名;</span><br><span class="line">SET character_set_connection = 字符集名;</span><br><span class="line">SET character_set_results = 字符集名;</span><br></pre></td></tr></table></figure>
+<p>比方说我的客户端使用的是<code>utf8</code>字符集，所以需要把这几个系统变量的值都设置为<code>utf8</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SET NAMES utf8;</span><br><span class="line">Query OK, 0 rows affected (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_client&#x27;;</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| Variable_name        | Value |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">| character_set_client | utf8  |</span><br><span class="line">+----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;  SHOW VARIABLES LIKE &#x27;character_set_connection&#x27;;</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">| Variable_name            | Value |</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">| character_set_connection | utf8  |</span><br><span class="line">+--------------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt; SHOW VARIABLES LIKE &#x27;character_set_results&#x27;;</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">| Variable_name         | Value |</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">| character_set_results | utf8  |</span><br><span class="line">+-----------------------+-------+</span><br><span class="line">1 row in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">小贴士：</span><br><span class="line"></span><br><span class="line">如果你使用的是Windows系统，那应该设置成gbk。</span><br></pre></td></tr></table></figure>
+<p>另外，如果你想在启动客户端的时候就把<code>character_set_client</code>、<code>character_set_connection</code>、<code>character_set_results</code>这三个系统变量的值设置成一样的，那我们可以在启动客户端的时候指定一个叫<code>default-character-set</code>的启动选项，比如在配置文件里可以这么写：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[client]</span><br><span class="line">default-character-set=utf8</span><br></pre></td></tr></table></figure>
+<p>它起到的效果和执行一遍<code>SET NAMES utf8</code>是一样一样的，都会将那三个系统变量的值设置成<code>utf8</code>。</p>
+<h3 id="比较规则的应用"><a href="#比较规则的应用" class="headerlink" title="比较规则的应用"></a>比较规则的应用</h3><p>结束了字符集的漫游，我们把视角再次聚焦到<code>比较规则</code>，<code>比较规则</code>的作用通常体现比较字符串大小的表达式以及对某个字符串列进行排序中，所以有时候也称为<code>排序规则</code>。比方说表<code>t</code>的列<code>col</code>使用的字符集是<code>gbk</code>，使用的比较规则是<code>gbk_chinese_ci</code>，我们向里边插入几条记录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; INSERT INTO t(col) VALUES(&#x27;a&#x27;), (&#x27;b&#x27;), (&#x27;A&#x27;), (&#x27;B&#x27;);</span><br><span class="line">Query OK, 4 rows affected (0.00 sec)</span><br><span class="line">Records: 4  Duplicates: 0  Warnings: 0</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<p>我们查询的时候按照<code>t</code>列排序一下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT * FROM t ORDER BY col;</span><br><span class="line">+------+</span><br><span class="line">| col  |</span><br><span class="line">+------+</span><br><span class="line">| a    |</span><br><span class="line">| A    |</span><br><span class="line">| b    |</span><br><span class="line">| B    |</span><br><span class="line">| 我   |</span><br><span class="line">+------+</span><br><span class="line">5 rows in set (0.00 sec)</span><br></pre></td></tr></table></figure>
+<p>可以看到在默认的比较规则<code>gbk_chinese_ci</code>中是不区分大小写的，我们现在把列<code>col</code>的比较规则修改为<code>gbk_bin</code>：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; ALTER TABLE t MODIFY s VARCHAR(10) COLLATE gbk_bin;</span><br><span class="line">Query OK, 5 rows affected (0.02 sec)</span><br><span class="line">Records: 5  Duplicates: 0  Warnings: 0</span><br></pre></td></tr></table></figure>
+<p>由于<code>gbk_bin</code>是不区分大小写而直接比较字符的编码，我们再看一下排序后的查询结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT * FROM t ORDER BY s;</span><br><span class="line">+------+</span><br><span class="line">| s    |</span><br><span class="line">+------+</span><br><span class="line">| A    |</span><br><span class="line">| B    |</span><br><span class="line">| a    |</span><br><span class="line">| b    |</span><br><span class="line">| 我   |</span><br><span class="line">+------+</span><br><span class="line">5 rows in set (0.00 sec)</span><br><span class="line"></span><br><span class="line">mysql&gt;</span><br></pre></td></tr></table></figure>
+<p>所以如果以后大家在对字符串做比较或者对某个字符串列做排序操作时没有得到想象中的结果，需要思考一下是不是<code>比较规则</code>的问题～</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">小贴士：</span><br><span class="line"></span><br><span class="line">列`col`中各个字符在使用gbk字符集编码后对应的数字如下：</span><br><span class="line">&#x27;A&#x27; -&gt; 65 （十进制）</span><br><span class="line">&#x27;B&#x27; -&gt; 66 （十进制）</span><br><span class="line">&#x27;A&#x27; -&gt; 97 （十进制）</span><br><span class="line">&#x27;A&#x27; -&gt; 98 （十进制）</span><br><span class="line">&#x27;A&#x27; -&gt; 25105 （十进制）</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ol>
+<li><p><code>字符集</code>的是某个字符范围的编码规则。</p>
+</li>
+<li><p><code>比较规则</code>是针对某个字符集中的字符比较大小的一种规则。</p>
+</li>
+<li><p>在<code>MySQL</code>中，一个字符集可以有若干种比较规则，其中有一个默认的比较规则，一个比较规则必须对应一个字符集。</p>
+</li>
+<li><p>查看<code>MySQL</code>中查看支持的字符集和比较规则的语句如下：</p>
+ <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SHOW (CHARACTER SET|CHARSET) [LIKE 匹配的模式];</span><br><span class="line">SHOW COLLATION [LIKE 匹配的模式];</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>MySQL有四个级别的字符集和比较规则</p>
+</li>
+</ol>
+<ul>
+<li><p>服务器级别</p>
+<p>  <code>character_set_server</code>表示服务器级别的字符集，<code>collation_server</code>表示服务器级别的比较规则。</p>
+</li>
+<li><p>数据库级别</p>
+<p>  创建和修改数据库时可以指定字符集和比较规则：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE DATABASE 数据库名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [[DEFAULT] COLLATE 比较规则名称];</span><br><span class="line"></span><br><span class="line">ALTER DATABASE 数据库名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [[DEFAULT] COLLATE 比较规则名称];</span><br></pre></td></tr></table></figure>
+<p>  <code>character_set_database</code>表示当前数据库的字符集，<code>collation_database</code>表示当前默认数据库的比较规则，这两个系统变量是只读的，不能修改。如果没有指定当前默认数据库，则变量与相应的服务器级系统变量具有相同的值。</p>
+</li>
+<li><p>表级别</p>
+<p>  创建和修改表的时候指定表的字符集和比较规则：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表名 (列的信息)</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [COLLATE 比较规则名称]]</span><br><span class="line"></span><br><span class="line">ALTER TABLE 表名</span><br><span class="line">    [[DEFAULT] CHARACTER SET 字符集名称]</span><br><span class="line">    [COLLATE 比较规则名称]</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>列级别</p>
+<p>  创建和修改列定义的时候可以指定该列的字符集和比较规则：</p>
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CREATE TABLE 表名(</span><br><span class="line">    列名 字符串类型 [CHARACTER SET 字符集名称] [COLLATE 比较规则名称],</span><br><span class="line">    其他列...</span><br><span class="line">);</span><br><span class="line"></span><br><span class="line">ALTER TABLE 表名 MODIFY 列名 字符串类型 [CHARACTER SET 字符集名称] [COLLATE 比较规则名称];</span><br></pre></td></tr></table></figure></li>
+</ul>
+<ol start="6">
+<li><p>从发送请求到接收结果过程中发生的字符集转换：</p>
+<ul>
+<li><p>客户端使用操作系统的字符集编码请求字符串</p>
+</li>
+<li><p>服务器将客户端发送来的字符串的字符集按照<code>chacharacter_set_client</code>转换为<code>character_set_connection</code>。</p>
+</li>
+<li><p>使用<code>character_set_connection</code>进行服务器操作。</p>
+</li>
+<li><p>将结果集字符串的字符集从<code>character_set_connection</code>转为<code>character_set_results</code>发送到客户端</p>
+</li>
+<li><p>客户端使用操作系统的字符集解析收到的结果集字符串</p>
+</li>
+</ul>
+<p> 在这个过程中各个系统变量的含义如下：</p>
+<table>
+<thead>
+<tr>
+<th align="center">系统变量</th>
+<th align="center">描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center"><code>character_set_client</code></td>
+<td align="center">服务器解码请求时使用的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>character_set_connection</code></td>
+<td align="center">服务器运行过程中使用的字符集</td>
+</tr>
+<tr>
+<td align="center"><code>character_set_results</code></td>
+<td align="center">服务器向客户端返回数据时使用的字符集</td>
+</tr>
+</tbody></table>
+<p> 一般情况下要使用保持这三个变量的值和客户端使用的字符集相同。</p>
+</li>
+<li><p>比较规则的作用通常体现比较字符串大小的表达式以及对某个字符串列进行排序中。</p>
+</li>
+</ol>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/3%E4%B9%B1%E7%A0%81%E7%9A%84%E5%89%8D%E4%B8%96%E4%BB%8A%E7%94%9F%20%E2%80%94%E2%80%94%20%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99/">https://hutbzc.github.io/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/3%E4%B9%B1%E7%A0%81%E7%9A%84%E5%89%8D%E4%B8%96%E4%BB%8A%E7%94%9F%20%E2%80%94%E2%80%94%20%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E8%BF%99%E6%98%AF%20Docker%20%E7%9A%84%E7%AE%80%E5%8E%86/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/4%E4%BB%8E%E4%B8%80%E6%9D%A1%E8%AE%B0%E5%BD%95%E8%AF%B4%E8%B5%B7%E2%80%94%E2%80%94%20InnoDB%20%E8%AE%B0%E5%BD%95%E7%BB%93%E6%9E%84/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99"><span class="toc-number">1.</span> <span class="toc-text">字符集和比较规则</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E7%AE%80%E4%BB%8B"><span class="toc-number">1.1.</span> <span class="toc-text">字符集和比较规则简介</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E7%AE%80%E4%BB%8B"><span class="toc-number">1.1.1.</span> <span class="toc-text">字符集简介</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E7%AE%80%E4%BB%8B"><span class="toc-number">1.1.2.</span> <span class="toc-text">比较规则简介</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%80%E4%BA%9B%E9%87%8D%E8%A6%81%E7%9A%84%E5%AD%97%E7%AC%A6%E9%9B%86"><span class="toc-number">1.1.3.</span> <span class="toc-text">一些重要的字符集</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#MySQL%E4%B8%AD%E6%94%AF%E6%8C%81%E7%9A%84%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%8E%92%E5%BA%8F%E8%A7%84%E5%88%99"><span class="toc-number">1.2.</span> <span class="toc-text">MySQL中支持的字符集和排序规则</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#MySQL%E4%B8%AD%E7%9A%84utf8%E5%92%8Cutf8mb4"><span class="toc-number">1.2.1.</span> <span class="toc-text">MySQL中的utf8和utf8mb4</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E7%9A%84%E6%9F%A5%E7%9C%8B"><span class="toc-number">1.2.2.</span> <span class="toc-text">字符集的查看</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E7%9A%84%E6%9F%A5%E7%9C%8B"><span class="toc-number">1.2.3.</span> <span class="toc-text">比较规则的查看</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E7%9A%84%E5%BA%94%E7%94%A8"><span class="toc-number">1.3.</span> <span class="toc-text">字符集和比较规则的应用</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%84%E7%BA%A7%E5%88%AB%E7%9A%84%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99"><span class="toc-number">1.3.1.</span> <span class="toc-text">各级别的字符集和比较规则</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%BA%A7%E5%88%AB"><span class="toc-number">1.3.1.1.</span> <span class="toc-text">服务器级别</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%95%B0%E6%8D%AE%E5%BA%93%E7%BA%A7%E5%88%AB"><span class="toc-number">1.3.1.2.</span> <span class="toc-text">数据库级别</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A1%A8%E7%BA%A7%E5%88%AB"><span class="toc-number">1.3.1.3.</span> <span class="toc-text">表级别</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%97%E7%BA%A7%E5%88%AB"><span class="toc-number">1.3.1.4.</span> <span class="toc-text">列级别</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BB%85%E4%BF%AE%E6%94%B9%E5%AD%97%E7%AC%A6%E9%9B%86%E6%88%96%E4%BB%85%E4%BF%AE%E6%94%B9%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99"><span class="toc-number">1.3.1.5.</span> <span class="toc-text">仅修改字符集或仅修改比较规则</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%90%84%E7%BA%A7%E5%88%AB%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E5%B0%8F%E7%BB%93"><span class="toc-number">1.3.1.6.</span> <span class="toc-text">各级别字符集和比较规则小结</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%A2%E6%88%B7%E7%AB%AF%E5%92%8C%E6%9C%8D%E5%8A%A1%E5%99%A8%E9%80%9A%E4%BF%A1%E4%B8%AD%E7%9A%84%E5%AD%97%E7%AC%A6%E9%9B%86"><span class="toc-number">1.3.2.</span> <span class="toc-text">客户端和服务器通信中的字符集</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BC%96%E7%A0%81%E5%92%8C%E8%A7%A3%E7%A0%81%E4%BD%BF%E7%94%A8%E7%9A%84%E5%AD%97%E7%AC%A6%E9%9B%86%E4%B8%8D%E4%B8%80%E8%87%B4%E7%9A%84%E5%90%8E%E6%9E%9C"><span class="toc-number">1.3.2.1.</span> <span class="toc-text">编码和解码使用的字符集不一致的后果</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AD%97%E7%AC%A6%E9%9B%86%E8%BD%AC%E6%8D%A2%E7%9A%84%E6%A6%82%E5%BF%B5"><span class="toc-number">1.3.2.2.</span> <span class="toc-text">字符集转换的概念</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#MySQL%E4%B8%AD%E5%AD%97%E7%AC%A6%E9%9B%86%E7%9A%84%E8%BD%AC%E6%8D%A2"><span class="toc-number">1.3.2.3.</span> <span class="toc-text">MySQL中字符集的转换</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99%E7%9A%84%E5%BA%94%E7%94%A8"><span class="toc-number">1.3.3.</span> <span class="toc-text">比较规则的应用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%80%BB%E7%BB%93"><span class="toc-number">1.4.</span> <span class="toc-text">总结</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC54%E7%AB%A0%E2%80%94Sentinel%E7%AF%87%EF%BC%9ASentinel%E7%9B%91%E6%8E%A7%E5%8E%9F%E7%90%86/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.467Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

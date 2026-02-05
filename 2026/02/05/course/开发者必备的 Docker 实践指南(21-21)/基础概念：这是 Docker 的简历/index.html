@@ -1,0 +1,276 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Southblock'Blog | Southblock'Blog</title><meta name="author" content="Southblock"><meta name="copyright" content="Southblock"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="这是 Docker 的简历在了解虚拟化和容器技术后，我们就更容易理解 Docker 的相关知识了。在这一小节中，我将介绍关于 Docker 的出现和发展，Docker 背后的技术。同时，我们将阐述 Docker 在虚拟化领域中的定位以及其带来的变革。 Docker 开源项目如果说 Docker 的诞生，就必须从 Docker 这个开源项目提起 ( 虽然它现在已经不叫 Docker 了 )。Dock">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Southblock&#39;Blog">
+<meta property="og:url" content="https://hutbzc.github.io/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E8%BF%99%E6%98%AF%20Docker%20%E7%9A%84%E7%AE%80%E5%8E%86/index.html">
+<meta property="og:site_name" content="Southblock&#39;Blog">
+<meta property="og:description" content="这是 Docker 的简历在了解虚拟化和容器技术后，我们就更容易理解 Docker 的相关知识了。在这一小节中，我将介绍关于 Docker 的出现和发展，Docker 背后的技术。同时，我们将阐述 Docker 在虚拟化领域中的定位以及其带来的变革。 Docker 开源项目如果说 Docker 的诞生，就必须从 Docker 这个开源项目提起 ( 虽然它现在已经不叫 Docker 了 )。Dock">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg">
+<meta property="article:published_time" content="2026-02-05T15:28:06.459Z">
+<meta property="article:modified_time" content="2026-02-05T15:28:06.460Z">
+<meta property="article:author" content="Southblock">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg"><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://hutbzc.github.io/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E8%BF%99%E6%98%AF%20Docker%20%E7%9A%84%E7%AE%80%E5%8E%86/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=4.14.0-b3"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.min.css" media="print" onload="this.media='all'"><script>(()=>{
+      const saveToLocal = {
+        set: (key, value, ttl) => {
+          if (ttl === 0) return
+          const now = Date.now()
+          const expiry = now + ttl * 86400000
+          const item = {
+            value,
+            expiry
+          }
+          localStorage.setItem(key, JSON.stringify(item))
+        },
+      
+        get: key => {
+          const itemStr = localStorage.getItem(key)
+      
+          if (!itemStr) {
+            return undefined
+          }
+          const item = JSON.parse(itemStr)
+          const now = Date.now()
+      
+          if (now > item.expiry) {
+            localStorage.removeItem(key)
+            return undefined
+          }
+          return item.value
+        }
+      }
+      
+      window.btf = {
+        saveToLocal: saveToLocal,
+        getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+          const script = document.createElement('script')
+          script.src = url
+          script.async = true
+          script.onerror = reject
+          script.onload = script.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            script.onload = script.onreadystatechange = null
+            resolve()
+          }
+
+          Object.keys(attr).forEach(key => {
+            script.setAttribute(key, attr[key])
+          })
+
+          document.head.appendChild(script)
+        }),
+
+        getCSS: (url, id = false) => new Promise((resolve, reject) => {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = url
+          if (id) link.id = id
+          link.onerror = reject
+          link.onload = link.onreadystatechange = function() {
+            const loadState = this.readyState
+            if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+            link.onload = link.onreadystatechange = null
+            resolve()
+          }
+          document.head.appendChild(link)
+        }),
+
+        addGlobalFn: (key, fn, name = false, parent = window) => {
+          const pjaxEnable = false
+          if (!pjaxEnable && key.startsWith('pjax')) return
+
+          const globalFn = parent.globalFn || {}
+          const keyObj = globalFn[key] || {}
+    
+          if (name && keyObj[name]) return
+    
+          name = name || Object.keys(keyObj).length
+          keyObj[name] = fn
+          globalFn[key] = keyObj
+          parent.globalFn = globalFn
+        }
+      }
+    
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+      
+      const t = saveToLocal.get('theme')
+    
+        if (t === 'dark') activateDarkMode()
+        else if (t === 'light') activateLightMode()
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        if (asideStatus === 'hide') {
+          document.documentElement.classList.add('hide-aside')
+        } else {
+          document.documentElement.classList.remove('hide-aside')
+        }
+      }
+    
+      const detectApple = () => {
+        if(/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)){
+          document.documentElement.classList.add('apple')
+        }
+      }
+      detectApple()
+    })()</script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":200,"highlightFullpage":true,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.11.1/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Southblock\'Blog',
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2026-02-05 23:28:06'
+}</script><meta name="generator" content="Hexo 7.2.0"></head><body><script>window.paceOptions = {
+  restartOnPushState: false
+}
+
+btf.addGlobalFn('pjaxSend', () => {
+  Pace.restart()
+}, 'pace_restart')
+
+</script><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/themes/blue/pace-theme-minimal.min.css"/><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img is-center"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="sidebar-site-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><hr class="custom-hr"/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header"><nav id="nav"><span id="blog-info"><a href="/" title="Southblock'Blog"><span class="site-name">Southblock'Blog</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> Home</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> Archives</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> Tags</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> Categories</span></a></div><div class="menus_item"><span class="site-page group"><i class="fa-fw fas fa-list"></i><span> List</span><i class="fas fa-chevron-down"></i></span><ul class="menus_item_child"><li><a class="site-page child" href="/music/"><i class="fa-fw fas fa-music"></i><span> Music</span></a></li><li><a class="site-page child" href="/movies/"><i class="fa-fw fas fa-video"></i><span> Movie</span></a></li></ul></div><div class="menus_item"><a class="site-page" href="/link/"><i class="fa-fw fas fa-link"></i><span> Link</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> About</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">无题</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-02-05T15:28:06.459Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-02-05T15:28:06.460Z" title="更新于 2026-02-05 23:28:06">2026-02-05</time></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="post-content" id="article-container"><h1 id="这是-Docker-的简历"><a href="#这是-Docker-的简历" class="headerlink" title="这是 Docker 的简历"></a>这是 Docker 的简历</h1><p>在了解虚拟化和容器技术后，我们就更容易理解 Docker 的相关知识了。在这一小节中，我将介绍关于 Docker 的出现和发展，Docker 背后的技术。同时，我们将阐述 Docker 在虚拟化领域中的定位以及其带来的变革。</p>
+<h2 id="Docker-开源项目"><a href="#Docker-开源项目" class="headerlink" title="Docker 开源项目"></a>Docker 开源项目</h2><p>如果说 Docker 的诞生，就必须从 Docker 这个开源项目提起 ( 虽然它现在已经不叫 Docker 了 )。Docker 项目是一个由 Go 语言实现的容器引擎，它最初由 dotCloud 这家做云服务的公司在 2013 年开源。</p>
+<p>由于 Docker 带来的巨大的便利，让很多开发、测试和运维等软件开发环节上的工作被简化甚至省去，所以在短短的几年间便成为虚拟化乃至整个技术领域的热词。同时，许多开发者乃至大型科技企业都参与到了 Docker 相关领域的贡献中来，为 Docker 及其生态圈贡献了许多优秀的软件项目，这大大提高了 Docker 生态的完整性，也让 Docker 日益健壮。</p>
+<p>也许 dotCloud 自己也没有想到，云服务没卖出几个钱，反倒是 Docker 越来越火。拥有商业头脑的他们，干脆不再做云服务了，也把公司名字改成 Docker Inc. 专门从事 Docker 周边的生意。</p>
+<p>当然，Docker 的商业化也带来了一定的变化。为了更好的进行商业运作，Docker Inc. 将 Docker 开源项目的名称修改为了 Moby，所以大家要是在 GitHub 上没有搜索到 Docker 不要觉得惊讶，因为它现在的名字是 Moby ( <a target="_blank" rel="noopener" href="https://github.com/moby/moby">https://github.com/moby/moby</a> )。</p>
+<p>关于 Moby 和 Docker 更多的内容，这里给大家提供一下参考资料，有兴趣的朋友们可以前往阅读：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://yq.aliyun.com/articles/74437">Docker改名啦？什么是 Moby Project</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.zhihu.com/question/58805021">对于 Docker 改名 Moby ，大家怎么看？</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.docker.com/2017/04/introducing-the-moby-project/">Introducing Moby Project</a></li>
+</ul>
+<h2 id="Docker-所带来的改变"><a href="#Docker-所带来的改变" class="headerlink" title="Docker 所带来的改变"></a>Docker 所带来的改变</h2><p>简单说了一些 Docker 的故事，接来下我们就必须重点说一下 Docker 所带来的改变。正是这些对我们工作方式的改变，让我们越来越难以离开 Docker，又源于我们对 Docker 如此的喜爱，让 Docker 能够在短时间内就从雏鸟成长为大鹏，成为万众瞩目的新星。</p>
+<h3 id="云计算时代的挑战"><a href="#云计算时代的挑战" class="headerlink" title="云计算时代的挑战"></a>云计算时代的挑战</h3><p>在计算机技术发展的早期，几乎所有的程序都是在开发后部署到一台或是少数几台服务器上的。那时的程序也几乎都是集所有模块和运行时环境为一身的“全栈应用”，虽然这些程序可以基于一套良好、完善的协议栈 ( 譬如一套完整的 MVC 架构 ) 进行开发，但再好的架构也无法让应用服务在这种体系下快速发展。</p>
+<p>随着互联网的极速发展，应用程序的功能越来越丰富，而需要迭代的速度要求也越来越高，为了实现这些目标，应用的开发逐渐趋向服务化甚至微服务化。每个应用程序都有其对应依赖的操作系统或者其他程序，而在将应用程序细分为不同的微服务或者是其他形式的微小应用模块后，解决这种依赖问题会愈发显得棘手。有的应用运行环境特别复杂，搭建过程也极易出错，这都是让开发、测试、运维人员焦头烂额的地方。更多时候，开发者们肯定更愿意将他们宝贵的时间用在实际的开发中，而不是纠缠着应用运行环境的问题上。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/2/165997343db35f56?w=1140&h=869&f=png&s=223317" alt="分布式应用服务体系"></p>
+<p>同时，由于物理硬件的更新迭代速度已经难以追赶互联网的脚步，应用的部署逐渐转向集群化。应用模块的数量乘上每个应用所部署的机器的数量，会是一个非常庞大的数字。相信所有的开发或者运维都不会愿意把时间浪费在逐一搭建服务器环境这种重复的劳动上。</p>
+<p>这些变化都对应用的开发、部署带来了不小的挑战。</p>
+<p>我想很多读者已经想到了应对这些挑战的办法了，没错，那就是虚拟化技术。通过虚拟化技术可以让环境的搭建变得更加的容易，对我们快速部署分布式应用服务体系提供了极大的便利。</p>
+<p>进而言之，如果我们把管理环境的复杂度，更轻量级的虚拟化实现等更加实际的问题考虑进去，容器技术自然成了虚拟化技术中最佳的选择项。</p>
+<h3 id="皆为效率"><a href="#皆为效率" class="headerlink" title="皆为效率"></a>皆为效率</h3><p>如果说在分布式部署中应用容器技术是一个方向，那么 Docker 就是在这个方向上跑得最快也最完美的运动员了。Docker 不论从实现容器技术的完整性上来说，还是从上手易用性来说，都是可圈可点的。</p>
+<p>好了，这里我要穿插一下推荐 Docker 的原因了。我们使用 Docker 的目的其实很简单，就是<strong>利用它的全面性和易用性带来的提升我们的工作效率</strong>。了解了这个目的，我想大家会更容易理解很多场合 Docker 能派上用场的原因。当然，通过这个道理，你也就明白了为什么我会说 Docker 是一门新时代开发者必须掌握的技术了。毕竟所有的老板都希望找到会得多、干活快的优秀开发者 ( 亦或者说，会的多、干活快是优秀开发者所必备的品质 )。</p>
+<p>再怎么从理论上说快也是很难服众的，是骡子是马拉出来“跑个分”就知道了。Docker 官方对 Docker 在工作上带来的提升做了调查研究，分别从工作效率的提升和技术设计投入的减少等方面数据化了 Docker 所做出的突出贡献。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/2/1659994bbc4225dd?w=826&h=1394&f=png&s=231772"></p>
+<p>相信看到这些数据，你已经明白为何 Docker 备受关注的原因了。</p>
+<h2 id="Docker-的技术实现"><a href="#Docker-的技术实现" class="headerlink" title="Docker 的技术实现"></a>Docker 的技术实现</h2><p>这里我们再简单了解一下 Docker 的技术实现，以便有探索欲望的读者查找相关资料进行深入阅读。</p>
+<p>Docker 的实现，主要归结于三大技术：命名空间 ( Namespaces ) 、控制组 ( Control Groups ) 和联合文件系统 ( Union File System ) 。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/2/16599a9d7a391ecf?w=1200&h=330&f=png&s=49811"></p>
+<h3 id="Namespace"><a href="#Namespace" class="headerlink" title="Namespace"></a>Namespace</h3><p>命名空间是 Linux 核心在 2.4 版本后逐渐引入的一项用于运行隔离的模块。</p>
+<p>相信很多开发者在不同的编程语言中都见过命名空间的概念，在这些编程语言中，命名空间的主要目的就是为了集合相同模块的类，区分不同模块间的同名类。</p>
+<p>同样的道理，Linux 内核的命名空间，就是能够将计算机资源进行切割划分，形成各自独立的空间。</p>
+<p>就实现而言，Linux Namespaces 可以分为很多具体的子系统，如 User Namespace、Net Namespace、PID Namespace、Mount Namespace 等等。</p>
+<p>这里我们以进程为例，通过 PID Namespace，我们可以造就一个独立的进程运行空间，在其中进程的编号又会从 1 开始。在这个空间中运行的进程，完全感知不到外界系统中的其他进程或是其他进程命名空间中运行的进程。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/2/16599ae7734e4bbd?w=1200&h=520&f=png&s=82060"></p>
+<p>利用 PID Namespace，Docker 就实现了容器中隔离程序运行中进程隔离这一目标。</p>
+<h3 id="Control-Groups"><a href="#Control-Groups" class="headerlink" title="Control Groups"></a>Control Groups</h3><p>资源控制组 ( 常缩写为 CGroups ) 是 Linux 内核在 2.6 版本后逐渐引入的一项对计算机资源控制的模块。</p>
+<p>顾名思义，资源控制组的作用就是控制计算机资源的。与以隔离进程、网络、文件系统等虚拟资源为目的 Namespace 不同，CGroups 主要做的是硬件资源的隔离。</p>
+<p>之前我们提到了，虚拟化除了制造出虚拟的环境隔离同一物理平台运行的不同程序之外，另一大作用就是控制硬件资源的分配，CGroups 的使用正是为了这样的目的。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/3/1659fe616f839787?w=1200&h=500&f=png&s=51915"></p>
+<p>需要再强调一次的是，CGroups 除了资源的隔离，还有资源<strong>分配</strong>这个关键性的作用。通过 CGroups，我们可以指定任意一个隔离环境对任意资源的占用值或占用率，这对于很多分布式使用场景来说是非常有用的功能。</p>
+<p>例如，我们在服务器上部署一个业务服务和一个健康监控服务。通常情况下，监控服务只会占用很少的计算机资源，但我们无法保证其不会因为一些逻辑问题产生 Bug 进而过分消耗计算机资源。而它申请的计算机资源越多，意味着业务服务所能使用的计算机资源也就越少，最后甚至可能造成物理服务器的崩溃。</p>
+<p>上述的问题在没有隔离实现的普通运行环境下是比较难解决的，因为所有不从系统层面出发的限制程序资源使用的方式都并不完全有效。由于 CGroups 实现于操作系统，而操作系统垄断着系统资源的分配，所以其完全能够限制隔离环境下应用的资源占有量。</p>
+<h3 id="Union-File-System"><a href="#Union-File-System" class="headerlink" title="Union File System"></a>Union File System</h3><p>联合文件系统 ( Union File System ) 是一种能够同时挂载不同实际文件或文件夹到同一目录，形成一种<strong>联合文件结构</strong>的文件系统。联合文件系统本身与虚拟化并无太大的关系，但 Docker 却创新的将其引入到容器实现中，用它解决虚拟环境对文件系统占用过量，实现虚拟环境快速启停等问题。</p>
+<p>在 Docker 中，提供了一种对 UnionFS 的改进实现，也就是 AUFS ( Advanced Union File System )。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/3/1659ff1c8e6f1c3c?w=1200&h=770&f=png&s=107859"></p>
+<p>AUFS 将文件的更新挂载到老的文件之上，而不去修改那些不更新的内容，这就意味着即使虚拟的文件系统被反复修改，也能保证对真实文件系统的空间占用保持一个较低水平。</p>
+<p>也许这个表述还不够形象，那么我们来用 Git 进行比较，会让大家会更容易理解。大家知道，我们在 Git 中每进行一次提交，Git 并不是将我们所有的内容打包成一个版本，而只是将修改的部分进行记录，这样即使我们提交很多次后，代码库的空间占用也不会倍数增加。</p>
+<p>同样的，通过 AUFS，Docker 大幅减少了虚拟文件系统对物理存储空间的占用。由此，Docker 也开创出了虚拟化领域很多新的轻量级解决方案，这在之后的小节里我们会提到。</p>
+<h2 id="Docker-的理念"><a href="#Docker-的理念" class="headerlink" title="Docker 的理念"></a>Docker 的理念</h2><p>在对 Docker 及其背后的一些技术有了一个初步了解之后，我们还要着重说一下 Docker 本身的一些设计理念。如果说熟悉 Docker 背后的技术能够更好的帮助你正确使用 Docker，那么理解 Docker 的理念将更好的指导你如何搭配 Docker 容器间的关系。</p>
+<p>让我们先来从一张 Docker 官方提供的架构图来看看 Docker 对容器结构的设计。</p>
+<p><img src="https://user-gold-cdn.xitu.io/2018/9/7/165b2a9bd4a1a1b4?w=1239&h=630&f=png&s=64225"></p>
+<p>与其他虚拟化实现甚至其他容器引擎不同的是，Docker 推崇一种轻量级容器的结构，即一个应用一个容器。</p>
+<p>举个具体的例子，在常见的虚拟机实现中，我们要搭建一套 LAMP 结构的服务，我们通常会建立一个虚拟机，在虚拟机中安装上 Linux 系统，之后分别安装 Apache、MySQL 和 PHP。而在 Docker 里，最佳的实践是分别基于 Apache、MySQL 和 PHP 的镜像建立三个容器，分别运行 Apache、MySQL 和 PHP ，而它们所在的虚拟操作系统也直接共享于宿主机的操作系统。</p>
+<p>如果我们将 Docker 的轻量级容器实现和虚拟机的一些参数进行对比，更容易得到结果。</p>
+<p>属性</p>
+<p>Docker</p>
+<p>虚拟机</p>
+<p>启动速度</p>
+<p>秒级</p>
+<p>分钟级</p>
+<p>硬盘使用</p>
+<p>MB 级</p>
+<p>GB 级</p>
+<p>性能</p>
+<p>接近原生</p>
+<p>较低</p>
+<p>普通机器支撑量</p>
+<p>数百个</p>
+<p>几个</p>
+<p>虽然这里只列出了一些 Docker 的优势项，但这些优势都是对我们开发中环境搭建和使用极其有帮助的内容。就拿启动速度来说，我们在开发中显然不愿意调整环境或更新代码后要等待几分钟来让其生效，Docker 秒级的启动速度几乎让我们感知不到我们对环境做了什么改动。而像虚拟机占用大量操作系统资源，导致我们本地开发使用电脑过慢 ( 有时候不得不将环境搭建在另外的机器上，但这显然在代码编写到运行自测的过程中增加很多工作量 ) 等问题，也容易得到解决。</p>
+<p>当然，在 Docker 中能实现这样的设计理念，还要归功于几项基础设施的支持。</p>
+<p>首先，只有在容器技术的支撑下，应用即容器的方案才能有效的实施。因为容器技术既剔除了 Hypervisor 层，又干掉了虚拟操作系统的概念，让容器中应用运行的消耗与真实操作系统中运行的消耗几乎完全一致。只有这样，我们才能像在真实操作系统中开启应用一样开启新的容器，而不用过分担心虚拟化带来的性能消耗。</p>
+<p>其次，基于联合文件系统的底层文件系统支持，让容器能够很容易在真实操作系统中共享存储资源，并由此带来了对存储空间的低消耗。与动辄就要独立开辟十几 GB 甚至几十 GB 的虚拟化实现相比，要存在巨大的优势。</p>
+<p>当然，Docker 也支持你在容器中同时运行很多种程序，但其容器设计本身并不针对这种方案，所以如果你以这种方案在 Docker 中搭建环境，你会花费不少时间做出一些本来并不需要做的事情。虽然这看上去动手性很强，但我并不推荐在工作中这么去做，因为我们使用 Docker 本身就是为了效率，浪费时间在这些不必要的事情上，已经违背了我们使用 Docker 的初衷。</p>
+<h2 id="我们能用-Docker-做些什么"><a href="#我们能用-Docker-做些什么" class="headerlink" title="我们能用 Docker 做些什么"></a>我们能用 Docker 做些什么</h2><p>从理论上我们已经知道 Docker 能够为我们的工作带来巨大的便利，那么将其放于实践中，我们应该如何正确的使用它呢？这里我摘录整理了一段来自 Docker 官方文档的指导意见，希望能够对大家的实践提供参考。</p>
+<h3 id="更快、更一致的交付你的应用程序"><a href="#更快、更一致的交付你的应用程序" class="headerlink" title="更快、更一致的交付你的应用程序"></a>更快、更一致的交付你的应用程序</h3><p>使用 Docker 后，开发者能够在本地容器中得到一套标准的应用或服务的运行环境，由此可以简化开发的生命周期 ( 减少在不同环境间进行适配、调整所造成的额外消耗 )。对于整个应用迭代来说，加入 Docker 的工作流程将更加适合持续集成 ( Continuous Integration ) 和持续交付 ( Continuous Delivery )。</p>
+<p>举个具体的例子：</p>
+<ul>
+<li>开发者能够使用 Docker 在本地编写代码并通过容器与其他同事共享他们的工作。</li>
+<li>他们能够使用 Docker 将编写好的程序推送至测试环境进行自动化测试或是人工测试。</li>
+<li>当出现 Bugs 时，开发者可以在开发环境中修复它们，并很快的重新部署到测试环境中。</li>
+<li>在测试完成后，部署装有应用程序的镜像就能完成生产环境的发布。</li>
+</ul>
+<h3 id="跨平台部署和动态伸缩"><a href="#跨平台部署和动态伸缩" class="headerlink" title="跨平台部署和动态伸缩"></a>跨平台部署和动态伸缩</h3><p>基于容器技术的 Docker 拥有很高的跨平台性，Docker 的容器能够很轻松的运行在开发者本地的电脑，数据中心的物理机或虚拟机，云服务商提供的云服务器，甚至是混合环境中。</p>
+<p>同时，Docker 的轻量性和高可移植性能够很好的帮助我们完成应用的动态伸缩，我们可以通过一些手段近实时的对基于 Docker 运行的应用进行弹性伸缩，这能够大幅提高应用的健壮性。</p>
+<h3 id="让同样的硬件提供更多的产出能力"><a href="#让同样的硬件提供更多的产出能力" class="headerlink" title="让同样的硬件提供更多的产出能力"></a>让同样的硬件提供更多的产出能力</h3><p>Docker 的高效和轻量等特征，为替代基于 Hypervisor 的虚拟机提供了一个经济、高效、可行的方案。在 Docker 下，你能节约出更多的资源投入到业务中去，让应用程序产生更高的效益。同时，如此低的资源消耗也说明了 Docker 非常适合在高密度的中小型部署场景中使用。</p>
+<h2 id="留言互动"><a href="#留言互动" class="headerlink" title="留言互动"></a>留言互动</h2><p>在这节中，我们溯源 Docker 的历史，从其诞生的背景和其解决的问题出发，阐述了 Docker 背后的技术和 Docker 本身的设计理念。这里给大家留一道思考题：</p>
+<blockquote>
+<p>Docker 所提倡的轻量级虚拟化与其他虚拟化实现中的完整操作系统虚拟化有什么样的优势，其优势又能应用到哪些实际的场景中去呢？</p>
+</blockquote>
+<p>欢迎大家通过留言的方式说出你的看法。我会选出有代表性的优质留言，推荐给大家。</p>
+<p>同时，如果你对 Docker 的发展历史，Docker 背后的技术或者 Docker 所推崇的理念还有不解之处，可以加入到这本小册的官方微信群中，参与对相关问题的讨论。</p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io">Southblock</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://hutbzc.github.io/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E8%BF%99%E6%98%AF%20Docker%20%E7%9A%84%E7%AE%80%E5%8E%86/">https://hutbzc.github.io/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E8%BF%99%E6%98%AF%20Docker%20%E7%9A%84%E7%AE%80%E5%8E%86/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://hutbzc.github.io" target="_blank">Southblock'Blog</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"></div><div class="post_share"><div class="social-share" data-image="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2026/02/05/course/%E5%BC%80%E5%8F%91%E8%80%85%E5%BF%85%E5%A4%87%E7%9A%84%20Docker%20%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97(21-21)/%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5%EF%BC%9A%E6%B5%85%E8%B0%88%E8%99%9A%E6%8B%9F%E5%8C%96%E5%92%8C%E5%AE%B9%E5%99%A8%E6%8A%80%E6%9C%AF/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info"></div></div></a></div><div class="next-post pull-right"><a href="/2026/02/05/course/MySQL%20%E6%98%AF%E6%80%8E%E6%A0%B7%E8%BF%90%E8%A1%8C%E7%9A%84%EF%BC%9A%E4%BB%8E%E6%A0%B9%E5%84%BF%E4%B8%8A%E7%90%86%E8%A7%A3%20MySQL(25-53)/3%E4%B9%B1%E7%A0%81%E7%9A%84%E5%89%8D%E4%B8%96%E4%BB%8A%E7%94%9F%20%E2%80%94%E2%80%94%20%E5%AD%97%E7%AC%A6%E9%9B%86%E5%92%8C%E6%AF%94%E8%BE%83%E8%A7%84%E5%88%99/" title=""><div class="cover" style="background: var(--default-bg-color)"></div><div class="pagination-info"><div class="label">下一篇</div><div class="next_info"></div></div></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="is-center"><div class="avatar-img"><img src="https://bu.dusays.com/2024/05/14/664353a6a5232.jpg" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info__name">Southblock</div><div class="author-info__description">个人博客Blog</div></div><div class="card-info-data site-data is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">149</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">17</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/hutbzc"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/hutbzc" target="_blank" title="Github"><i class="fab fa-github" style="color: #24292e;"></i></a><a class="social-icon" href="mailto:southblock@126.com" target="_blank" title="Email"><i class="fas fa-envelope" style="color: #4a7dbe;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="QQ"><i class="fab fa-qq" style="color: #000000;"></i></a><a class="social-icon" href="/javascript;" target="_blank" title="Weixin"><i class="fab fa-weixin" style="color: #26da6f;"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到Southblock' Blog</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E8%BF%99%E6%98%AF-Docker-%E7%9A%84%E7%AE%80%E5%8E%86"><span class="toc-number">1.</span> <span class="toc-text">这是 Docker 的简历</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E5%BC%80%E6%BA%90%E9%A1%B9%E7%9B%AE"><span class="toc-number">1.1.</span> <span class="toc-text">Docker 开源项目</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E6%89%80%E5%B8%A6%E6%9D%A5%E7%9A%84%E6%94%B9%E5%8F%98"><span class="toc-number">1.2.</span> <span class="toc-text">Docker 所带来的改变</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BA%91%E8%AE%A1%E7%AE%97%E6%97%B6%E4%BB%A3%E7%9A%84%E6%8C%91%E6%88%98"><span class="toc-number">1.2.1.</span> <span class="toc-text">云计算时代的挑战</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%9A%86%E4%B8%BA%E6%95%88%E7%8E%87"><span class="toc-number">1.2.2.</span> <span class="toc-text">皆为效率</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E7%9A%84%E6%8A%80%E6%9C%AF%E5%AE%9E%E7%8E%B0"><span class="toc-number">1.3.</span> <span class="toc-text">Docker 的技术实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Namespace"><span class="toc-number">1.3.1.</span> <span class="toc-text">Namespace</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Control-Groups"><span class="toc-number">1.3.2.</span> <span class="toc-text">Control Groups</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Union-File-System"><span class="toc-number">1.3.3.</span> <span class="toc-text">Union File System</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Docker-%E7%9A%84%E7%90%86%E5%BF%B5"><span class="toc-number">1.4.</span> <span class="toc-text">Docker 的理念</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%88%91%E4%BB%AC%E8%83%BD%E7%94%A8-Docker-%E5%81%9A%E4%BA%9B%E4%BB%80%E4%B9%88"><span class="toc-number">1.5.</span> <span class="toc-text">我们能用 Docker 做些什么</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9B%B4%E5%BF%AB%E3%80%81%E6%9B%B4%E4%B8%80%E8%87%B4%E7%9A%84%E4%BA%A4%E4%BB%98%E4%BD%A0%E7%9A%84%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F"><span class="toc-number">1.5.1.</span> <span class="toc-text">更快、更一致的交付你的应用程序</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%B7%A8%E5%B9%B3%E5%8F%B0%E9%83%A8%E7%BD%B2%E5%92%8C%E5%8A%A8%E6%80%81%E4%BC%B8%E7%BC%A9"><span class="toc-number">1.5.2.</span> <span class="toc-text">跨平台部署和动态伸缩</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%AE%A9%E5%90%8C%E6%A0%B7%E7%9A%84%E7%A1%AC%E4%BB%B6%E6%8F%90%E4%BE%9B%E6%9B%B4%E5%A4%9A%E7%9A%84%E4%BA%A7%E5%87%BA%E8%83%BD%E5%8A%9B"><span class="toc-number">1.5.3.</span> <span class="toc-text">让同样的硬件提供更多的产出能力</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%95%99%E8%A8%80%E4%BA%92%E5%8A%A8"><span class="toc-number">1.6.</span> <span class="toc-text">留言互动</span></a></li></ol></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC65%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9AGEO%E5%91%BD%E4%BB%A4%E7%9A%84%E4%BA%8C%E4%B8%89%E4%BA%8B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC66%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis%E6%89%A9%E5%B1%95%E5%88%A9%E5%99%A8%E4%B9%8BLua%E8%84%9A%E6%9C%AC/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC67%E7%AB%A0%E2%80%94%E6%89%A9%E5%B1%95%E8%83%BD%E5%8A%9B%E7%AF%87%EF%BC%9ARedis7%E6%96%B0%E7%89%B9%E6%80%A7%E4%B9%8BFunctions%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC68%E7%AB%A0%E2%80%94%E7%BB%93%E6%9D%9F%E8%AF%AD%EF%BC%9A%E7%82%B9%E4%BA%AE%E4%BD%A0%E7%9A%84Redis%E6%8A%80%E8%83%BD%E6%A0%91%EF%BC%8C%E8%BD%BB%E6%9D%BE%E6%99%8B%E5%8D%87%E4%B8%BA%E8%A1%8C%E4%B8%9A%E6%8A%80%E6%9C%AF%E5%A4%A7%E7%89%9B/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.468Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2026/02/05/course/%E8%AF%B4%E9%80%8FRedis7/%E7%AC%AC54%E7%AB%A0%E2%80%94Sentinel%E7%AF%87%EF%BC%9ASentinel%E7%9B%91%E6%8E%A7%E5%8E%9F%E7%90%86/" title="无题">无题</a><time datetime="2026-02-05T15:28:06.467Z" title="发表于 2026-02-05 23:28:06">2026-02-05</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2020 - 2026 By Southblock</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=4.14.0-b3"></script><script src="/js/main.js?v=4.14.0-b3"></script><script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0.35/dist/fancybox/fancybox.umd.min.js"></script><div class="js-pjax"></div><script id="canvas_nest" defer="defer" color="0,0,255" opacity="0.7" zIndex="-1" count="99" mobile="false" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.3/dist/canvas-nest.min.js"></script><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
